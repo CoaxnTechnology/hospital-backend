@@ -149,3 +149,90 @@ exports.getLastAppointment = async (patient_id) => {
 
   return rows[0];
 };
+exports.getAllPatientsPaginated = async (
+  limit,
+  offset,
+  search,
+  role,
+  userId,
+  doctorName,
+) => {
+  let where = "WHERE 1=1";
+  let values = [];
+
+  // 🔍 SEARCH
+  if (search) {
+    const isNumber = !isNaN(search);
+
+    if (isNumber) {
+      if (search.length >= 10) {
+        where += " AND p.phone LIKE ?";
+        values.push(`%${search}%`);
+      } else {
+        where += " AND p.id = ?";
+        values.push(Number(search));
+      }
+    } else {
+      where += " AND LOWER(p.name) LIKE LOWER(?)";
+      values.push(`%${search}%`);
+    }
+  }
+
+  // 👨‍⚕️ DOCTOR LOGIN FILTER
+  if (role === "doctor") {
+    where += " AND a.doctor_id = ?";
+    values.push(userId);
+  }
+
+  // 👑 ADMIN FILTER BY DOCTOR NAME
+  if (role === "admin" && doctorName) {
+    where += " AND CONCAT(d.first_name, ' ', d.last_name) LIKE ?";
+    values.push(`%${doctorName}%`);
+  }
+
+  const sql = `
+  SELECT 
+    p.id,
+    p.name,
+    p.email,
+    p.phone,
+    p.gender,
+    p.dob,
+    p.age,
+    p.created_at,
+
+    COUNT(a.id) AS total_visits,
+    MAX(a.date) AS last_visit,
+
+    SUBSTRING_INDEX(
+      GROUP_CONCAT(CONCAT(d.first_name, ' ', d.last_name) ORDER BY a.date DESC),
+      ',', 
+      1
+    ) AS doctor_name
+
+  FROM patient p
+  LEFT JOIN appointment a ON a.patient_id = p.id
+  LEFT JOIN doctor d ON d.id = a.doctor_id
+  ${where}
+  GROUP BY p.id
+  ORDER BY p.created_at DESC
+  LIMIT ? OFFSET ?
+`;
+
+  const [rows] = await db.query(sql, [...values, limit, offset]);
+
+  const countSql = `
+    SELECT COUNT(DISTINCT p.id) as total
+    FROM patient p
+    LEFT JOIN appointment a ON a.patient_id = p.id
+    LEFT JOIN doctor d ON d.id = a.doctor_id
+    ${where}
+  `;
+
+  const [countResult] = await db.query(countSql, values);
+
+  return {
+    data: rows,
+    total: countResult[0].total,
+  };
+};
