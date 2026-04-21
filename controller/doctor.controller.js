@@ -502,3 +502,32 @@ exports.getPrivateDoctors = async (req, res) => {
     });
   }
 };
+exports.getAllDoctorsPaginated = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
+
+    const offset = (page - 1) * limit;
+
+    const { data, total } = await Doctor.getAllDoctorsPaginated(
+      limit,
+      offset,
+      search,
+    );
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("GET DOCTORS PAGINATED ERROR:", error);
+    res.status(500).json({ success: false });
+  }
+};

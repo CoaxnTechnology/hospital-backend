@@ -84,6 +84,7 @@ router.get("/department/:department", doctorController.getDoctorsByDepartment);
  * ======================
  */
 router.get("/", doctorController.getAllDoctors);
+router.get("/doctors/paginated", doctorController.getAllDoctorsPaginated);
 
 /**
  * ======================

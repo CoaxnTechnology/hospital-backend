@@ -357,3 +357,49 @@ exports.getDoctorByUserId = async (user_id) => {
 
   return rows[0];
 };
+exports.getAllDoctorsPaginated = async (limit, offset, search) => {
+  let where = "";
+  let values = [];
+
+  if (search) {
+    where = `
+      WHERE 
+        first_name LIKE ? OR
+        last_name LIKE ? OR
+        department LIKE ? OR
+        id = ?
+    `;
+
+    values.push(
+      `%${search}%`,
+      `%${search}%`,
+      `%${search}%`,
+      search
+    );
+  }
+
+  // 🔹 DATA QUERY
+  const sql = `
+    SELECT *
+    FROM doctor
+    ${where}
+    ORDER BY id DESC
+    LIMIT ? OFFSET ?
+  `;
+
+  const [rows] = await db.query(sql, [...values, limit, offset]);
+
+  // 🔹 COUNT QUERY
+  const countSql = `
+    SELECT COUNT(*) as total
+    FROM doctor
+    ${where}
+  `;
+
+  const [countResult] = await db.query(countSql, values);
+
+  return {
+    data: rows,
+    total: countResult[0].total,
+  };
+};
