@@ -17,12 +17,17 @@ exports.createAppointment = async (req, res) => {
     const firebaseUser = req.firebaseUser;
     console.log("📲 Firebase User:", firebaseUser);
     if (!firebaseUser || !firebaseUser.phone_number) {
+      console.log(
+        "⚠️ Firebase verification failed or phone number missing:",
+        firebaseUser,
+      );
       return res.status(400).json({
         success: false,
         message: "Phone not verified",
       });
     }
     console.log("✅ Firebase verified phone:", firebaseUser.phone_number);
+
     const {
       patient_id,
       patient_name,
@@ -37,23 +42,49 @@ exports.createAppointment = async (req, res) => {
     } = req.body;
 
     console.log("📥 REQUEST BODY:", req.body);
+    console.log("🔎 Validation values:", {
+      patient_id,
+      patient_name,
+      phone,
+      age,
+      gender,
+      department,
+      doctor_id,
+      date,
+      time,
+      problem,
+    });
+
     // 🔥 PHONE MATCH CHECK
+    const expectedPhone = phone ? "+91" + phone : null;
     console.log("📞 Frontend Phone:", phone);
+    console.log("📞 Expected Firebase Phone:", expectedPhone);
     console.log("📞 Firebase Phone:", firebaseUser.phone_number);
-    // 🔥 2. PHONE MATCH CHECK (VERY IMPORTANT)
-    if (phone && firebaseUser.phone_number !== "+91" + phone) {
+
+    if (phone && firebaseUser.phone_number !== expectedPhone) {
+      console.log("❌ Phone mismatch detected", {
+        frontendPhone: phone,
+        expectedPhone,
+        firebasePhone: firebaseUser.phone_number,
+      });
       return res.status(400).json({
         success: false,
         message: "Phone number mismatch",
       });
     }
     console.log("✅ Phone matched");
+
     /**
      * ======================
      * VALIDATION
      * ======================
      */
     if (!doctor_id || !date || !time) {
+      console.log("⚠️ Validation failed: missing doctor, date, or time", {
+        doctor_id,
+        date,
+        time,
+      });
       return res.status(400).json({
         success: false,
         message: "Doctor, date and time are required",
@@ -62,6 +93,11 @@ exports.createAppointment = async (req, res) => {
 
     // If no patient_id → need name + phone
     if (!patient_id && (!patient_name || !phone)) {
+      console.log("⚠️ Validation failed: missing patient details", {
+        patient_id,
+        patient_name,
+        phone,
+      });
       return res.status(400).json({
         success: false,
         message: "Patient details required",
@@ -73,18 +109,22 @@ exports.createAppointment = async (req, res) => {
      * CALL SERVICE / MODEL
      * ======================
      */
-    const result = await Appointment.addAppointment({
+    const appointmentPayload = {
       patient_id,
       patient_name,
       phone,
-      age, // 🔥 PASS THIS
-      gender, // 🔥 PASS THIS
+      age,
+      gender,
       department,
       doctor_id,
       date,
       time,
       problem,
-    });
+    };
+    console.log("🧾 Appointment payload to model:", appointmentPayload);
+
+    const result = await Appointment.addAppointment(appointmentPayload);
+    console.log("✅ Appointment created result:", result);
 
     /**
      * ======================
