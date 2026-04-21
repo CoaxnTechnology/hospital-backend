@@ -458,11 +458,6 @@ exports.getDoctorsByDepartment = async (req, res) => {
  */
 exports.getPrivateDoctors = async (req, res) => {
   try {
-    console.log("🔥 USER:", req.user);
-
-    let doctors = [];
-
-    // ❌ safety
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -470,15 +465,40 @@ exports.getPrivateDoctors = async (req, res) => {
       });
     }
 
-    // 👑 ADMIN → ALL DOCTORS
+    // 👑 ADMIN → PAGINATION + SEARCH
     if (req.user.role === "admin") {
-      doctors = await Doctor.getAllDoctors();
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const search = req.query.search || "";
+
+      const offset = (page - 1) * limit;
+
+      const { data, total } = await Doctor.getAllDoctorsPaginated(
+        limit,
+        offset,
+        search
+      );
+
+      return res.json({
+        success: true,
+        data,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
     }
 
-    // 🧑‍⚕️ DOCTOR → ONLY OWN
+    // 🧑‍⚕️ DOCTOR → ONLY OWN (NO PAGINATION)
     else if (req.user.role === "doctor") {
       const doctor = await Doctor.getDoctorByUserId(req.user.id);
-      doctors = doctor ? [doctor] : [];
+
+      return res.json({
+        success: true,
+        data: doctor ? [doctor] : [],
+      });
     }
 
     // ❌ OTHER ROLE
@@ -488,11 +508,6 @@ exports.getPrivateDoctors = async (req, res) => {
         message: "Not allowed",
       });
     }
-
-    return res.json({
-      success: true,
-      data: doctors,
-    });
   } catch (error) {
     console.error("PRIVATE DOCTORS ERROR:", error);
 
@@ -500,34 +515,5 @@ exports.getPrivateDoctors = async (req, res) => {
       success: false,
       message: "Server error",
     });
-  }
-};
-exports.getAllDoctorsPaginated = async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const search = req.query.search || "";
-
-    const offset = (page - 1) * limit;
-
-    const { data, total } = await Doctor.getAllDoctorsPaginated(
-      limit,
-      offset,
-      search,
-    );
-
-    res.json({
-      success: true,
-      data,
-      pagination: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error("GET DOCTORS PAGINATED ERROR:", error);
-    res.status(500).json({ success: false });
   }
 };

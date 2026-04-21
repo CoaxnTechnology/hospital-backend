@@ -363,25 +363,25 @@ exports.getAllDoctorsPaginated = async (limit, offset, search) => {
 
   if (search) {
     where = `
-    WHERE 
-      CONCAT(first_name, ' ', last_name) LIKE ? OR
-      first_name LIKE ? OR
-      last_name LIKE ? OR
-      department LIKE ? OR
-      phone LIKE ? OR
-      id = ?
-  `;
+      WHERE 
+        first_name LIKE ? OR
+        last_name LIKE ? OR
+        department LIKE ? OR
+        phone LIKE ? OR
+        id = ? OR
+        CONCAT(first_name, ' ', last_name) LIKE ?
+    `;
 
     values.push(
-      `%${search}%`, // full name
       `%${search}%`,
       `%${search}%`,
       `%${search}%`,
       `%${search}%`,
       search,
+      `%${search}%`,
     );
   }
-  // 🔹 DATA QUERY
+
   const sql = `
     SELECT *
     FROM doctor
@@ -392,7 +392,6 @@ exports.getAllDoctorsPaginated = async (limit, offset, search) => {
 
   const [rows] = await db.query(sql, [...values, limit, offset]);
 
-  // 🔹 COUNT QUERY
   const countSql = `
     SELECT COUNT(*) as total
     FROM doctor
