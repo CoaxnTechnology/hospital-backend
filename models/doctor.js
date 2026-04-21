@@ -363,21 +363,24 @@ exports.getAllDoctorsPaginated = async (limit, offset, search) => {
 
   if (search) {
     where = `
-      WHERE 
-        first_name LIKE ? OR
-        last_name LIKE ? OR
-        department LIKE ? OR
-        id = ?
-    `;
+    WHERE 
+      CONCAT(first_name, ' ', last_name) LIKE ? OR
+      first_name LIKE ? OR
+      last_name LIKE ? OR
+      department LIKE ? OR
+      phone LIKE ? OR
+      id = ?
+  `;
 
     values.push(
+      `%${search}%`, // full name
       `%${search}%`,
       `%${search}%`,
       `%${search}%`,
-      search
+      `%${search}%`,
+      search,
     );
   }
-
   // 🔹 DATA QUERY
   const sql = `
     SELECT *
