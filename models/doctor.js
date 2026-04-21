@@ -362,30 +362,33 @@ exports.getAllDoctorsPaginated = async (limit, offset, search) => {
   let values = [];
 
   if (search) {
-    where = `
-      WHERE 
-        LOWER(first_name) LIKE LOWER(?) OR
-        LOWER(last_name) LIKE LOWER(?) OR
-        LOWER(CONCAT(first_name, ' ', last_name)) LIKE LOWER(?) OR
-        LOWER(department) LIKE LOWER(?) OR
-        phone LIKE ? OR
-        CAST(id AS CHAR) LIKE ? OR
-        LOWER(REPLACE(first_name, 'Dr.', '')) LIKE LOWER(?) OR
-        LOWER(REPLACE(first_name, 'Dr', '')) LIKE LOWER(?)
-    `;
+    const isNumber = !isNaN(search);
 
-    const like = `%${search}%`;
+    if (isNumber) {
+      // 🔥 PHONE vs ID detect
+      if (search.length >= 10) {
+        // 📱 PHONE SEARCH
+        where = `WHERE phone LIKE ?`;
+        values.push(`%${search}%`);
+      } else {
+        // 🆔 ID SEARCH
+        where = `WHERE id = ?`;
+        values.push(Number(search));
+      }
+    } else {
+      // 🔤 TEXT SEARCH
+      where = `
+        WHERE 
+          LOWER(first_name) LIKE LOWER(?) OR
+          LOWER(last_name) LIKE LOWER(?) OR
+          LOWER(CONCAT(first_name, ' ', last_name)) LIKE LOWER(?) OR
+          LOWER(department) LIKE LOWER(?) OR
+          phone LIKE ?
+      `;
 
-    values.push(
-      like, // first_name
-      like, // last_name
-      like, // full name
-      like, // department
-      like, // phone
-      like, // id
-      like, // remove Dr.
-      like, // remove Dr
-    );
+      const like = `%${search}%`;
+      values.push(like, like, like, like, like);
+    }
   }
 
   const sql = `

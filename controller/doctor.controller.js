@@ -458,26 +458,55 @@ exports.getDoctorsByDepartment = async (req, res) => {
  */
 exports.getPrivateDoctors = async (req, res) => {
   try {
+    console.log("====================================");
+    console.log("🔥 API HIT: getPrivateDoctors");
+
+    // 🔐 USER CHECK
+    console.log("👤 USER:", req.user);
+
     if (!req.user) {
+      console.log("❌ Unauthorized access");
       return res.status(401).json({
         success: false,
         message: "Unauthorized",
       });
     }
 
-    // 👑 ADMIN → PAGINATION + SEARCH
+    // 👑 ADMIN FLOW
     if (req.user.role === "admin") {
+      console.log("👑 ROLE: ADMIN");
+
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
       const search = req.query.search || "";
 
+      console.log("🔍 SEARCH RAW:", req.query.search);
+      console.log("🔍 SEARCH FINAL:", search);
+      console.log("🔢 TYPE OF SEARCH:", typeof search);
+
+      console.log("📄 PAGE:", page);
+      console.log("📦 LIMIT:", limit);
+
       const offset = (page - 1) * limit;
+      console.log("📌 OFFSET:", offset);
+
+      // 🔥 CALL MODEL
+      console.log("📡 CALLING MODEL getAllDoctorsPaginated...");
 
       const { data, total } = await Doctor.getAllDoctorsPaginated(
         limit,
         offset,
-        search
+        search,
       );
+
+      console.log("📥 TOTAL RECORDS:", total);
+      console.log("📥 DATA LENGTH:", data.length);
+
+      if (data.length > 0) {
+        console.log("📥 FIRST RECORD:", data[0]);
+      } else {
+        console.log("⚠️ NO DATA FOUND");
+      }
 
       return res.json({
         success: true,
@@ -491,9 +520,15 @@ exports.getPrivateDoctors = async (req, res) => {
       });
     }
 
-    // 🧑‍⚕️ DOCTOR → ONLY OWN (NO PAGINATION)
+    // 🧑‍⚕️ DOCTOR FLOW
     else if (req.user.role === "doctor") {
+      console.log("🧑‍⚕️ ROLE: DOCTOR");
+
+      console.log("🔍 USER ID:", req.user.id);
+
       const doctor = await Doctor.getDoctorByUserId(req.user.id);
+
+      console.log("📥 DOCTOR DATA:", doctor);
 
       return res.json({
         success: true,
@@ -503,13 +538,15 @@ exports.getPrivateDoctors = async (req, res) => {
 
     // ❌ OTHER ROLE
     else {
+      console.log("❌ INVALID ROLE:", req.user.role);
+
       return res.status(403).json({
         success: false,
         message: "Not allowed",
       });
     }
   } catch (error) {
-    console.error("PRIVATE DOCTORS ERROR:", error);
+    console.error("❌ PRIVATE DOCTORS ERROR:", error);
 
     res.status(500).json({
       success: false,
