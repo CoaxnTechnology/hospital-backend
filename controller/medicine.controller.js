@@ -425,6 +425,7 @@ exports.uploadExcel = async (req, res) => {
         row.unit || "Units",
         Number(row.unit_cost) || 0,
         Number(row.selling_price) || 0,
+        Number(row.gst_percentage) || 0, // 👈 ADD THIS
         row.shelf_location || "",
         row.batch_number || "",
         formatExcelDate(row.manufacturing_date),

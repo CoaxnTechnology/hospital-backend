@@ -21,6 +21,7 @@ reorder_level,
 unit,
 unit_cost,
 selling_price,
+gst_percentage, // 👈 ADD
 shelf_location,
 batch_number,
 manufacturing_date,
@@ -31,7 +32,7 @@ description,
 composition,
 storage
 )
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `;
 
   await con.query(sql, [
@@ -48,6 +49,7 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     data.unit,
     data.unit_cost,
     data.selling_price,
+    data.gst_percentage, // 👈 ADD
     data.shelf_location,
     data.batch_number,
     data.manufacturing_date,
@@ -85,6 +87,7 @@ reorder_level,
 unit,
 unit_cost,
 selling_price,
+gst_percentage,   // 👈 ADD HERE
 shelf_location,
 batch_number,
 manufacturing_date,
@@ -147,6 +150,7 @@ const updateMedicine = async (id, data) => {
     unit: "unit",
     unit_cost: "unit_cost",
     selling_price: "selling_price",
+    gst_percentage: "gst_percentage", // 👈 ADD THIS
     shelf_location: "shelf_location",
     batch_number: "batch_number",
     manufacturing_date: "manufacturing_date",
