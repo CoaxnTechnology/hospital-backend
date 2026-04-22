@@ -60,8 +60,7 @@ exports.addAppointment = async (data) => {
     console.log("📥 INPUT:", data);
 
     // 🔥 SAFE AGE PARSE
-    const parsedAge =
-      age !== undefined && age !== "" ? Number(age) : null;
+    const parsedAge = age !== undefined && age !== "" ? Number(age) : null;
 
     let finalPatientId = patient_id;
 
@@ -73,7 +72,7 @@ exports.addAppointment = async (data) => {
     if (finalPatientId) {
       const [rows] = await connection.query(
         `SELECT id FROM patient WHERE id=?`,
-        [finalPatientId]
+        [finalPatientId],
       );
 
       if (!rows.length) {
@@ -94,12 +93,7 @@ exports.addAppointment = async (data) => {
         const [insert] = await connection.query(
           `INSERT INTO patient (name, phone, age, gender)
            VALUES (?, ?, ?, ?)`,
-          [
-            patient_name,
-            phone,
-            parsedAge,
-            gender || null,
-          ]
+          [patient_name, phone, parsedAge, gender || null],
         );
 
         finalPatientId = insert.insertId;
@@ -110,7 +104,7 @@ exports.addAppointment = async (data) => {
           // 🔥 EXISTING PATIENT
           const [rows] = await connection.query(
             `SELECT id FROM patient WHERE phone=?`,
-            [phone]
+            [phone],
           );
 
           if (!rows.length) {
@@ -128,11 +122,7 @@ exports.addAppointment = async (data) => {
                age = COALESCE(?, age),
                gender = COALESCE(?, gender)
              WHERE id=?`,
-            [
-              parsedAge,
-              gender || null,
-              finalPatientId,
-            ]
+            [parsedAge, gender || null, finalPatientId],
           );
 
           console.log("🔄 PATIENT UPDATED");
@@ -175,7 +165,7 @@ exports.addAppointment = async (data) => {
         normalizedTime,
         problem,
         token,
-      ]
+      ],
     );
 
     await connection.commit();
@@ -476,4 +466,101 @@ exports.getAppointmentById = async (id) => {
   console.log("📥 RESULT:", rows);
 
   return rows[0];
+};
+exports.getAppointmentsPaginated = async (
+  page,
+  limit,
+  filter,
+  customDate,
+  search, // 👈 NEW
+) => {
+  let where = "WHERE 1=1";
+  let values = [];
+
+  // 📅 FILTER
+  if (filter === "today") {
+    where += " AND DATE(a.date) = CURDATE()";
+  } else if (filter === "tomorrow") {
+    where += " AND DATE(a.date) = CURDATE() + INTERVAL 1 DAY";
+  } else if (filter === "yesterday") {
+    where += " AND DATE(a.date) = CURDATE() - INTERVAL 1 DAY";
+  } else if (filter === "custom" && customDate) {
+    where += " AND DATE(a.date) = ?";
+    values.push(customDate);
+  }
+
+  // 🔍 SEARCH LOGIC
+  // 🔍 SEARCH LOGIC (IMPROVED)
+  if (search) {
+    const cleanSearch = search.trim();
+    const isNumber = !isNaN(cleanSearch);
+
+    if (isNumber) {
+      if (cleanSearch.length >= 10) {
+        // 📱 PHONE SEARCH (partial match)
+        where += " AND p.phone LIKE ?";
+        values.push(`%${cleanSearch}%`);
+      } else {
+        // 🆔 APPOINTMENT ID
+        where += " AND a.id = ?";
+        values.push(Number(cleanSearch));
+      }
+    } else {
+      // 🔤 TEXT SEARCH (NAME + DOCTOR + DEPARTMENT)
+      where += `
+      AND (
+        LOWER(p.name) LIKE LOWER(?) OR
+        LOWER(CONCAT(d.first_name,' ',d.last_name)) LIKE LOWER(?) OR
+        LOWER(a.department) LIKE LOWER(?)
+      )
+    `;
+
+      values.push(`%${cleanSearch}%`, `%${cleanSearch}%`, `%${cleanSearch}%`);
+    }
+  }
+
+  const offset = (page - 1) * limit;
+
+  // 🔹 MAIN QUERY
+  const sql = `
+    SELECT
+      a.id,
+      a.token_number,
+      a.date,
+      a.time,
+      a.status,
+      a.department,
+      p.name AS patient_name,
+      p.phone AS patient_phone,
+      p.age,
+      p.gender,
+      CONCAT(d.first_name,' ',d.last_name) AS doctor_name
+    FROM appointment a
+    JOIN patient p ON p.id = a.patient_id
+    JOIN doctor d ON d.id = a.doctor_id
+    ${where}
+    ORDER BY a.date DESC, a.token_number ASC
+    LIMIT ? OFFSET ?
+  `;
+
+  console.log("📡 SQL:", sql);
+  console.log("📊 VALUES:", [...values, limit, offset]);
+
+  const [rows] = await db.query(sql, [...values, limit, offset]);
+
+  // 🔹 COUNT QUERY
+  const countSql = `
+    SELECT COUNT(*) as total
+    FROM appointment a
+    JOIN patient p ON p.id = a.patient_id
+    JOIN doctor d ON d.id = a.doctor_id
+    ${where}
+  `;
+
+  const [countResult] = await db.query(countSql, values);
+
+  return {
+    data: rows,
+    total: countResult[0].total,
+  };
 };

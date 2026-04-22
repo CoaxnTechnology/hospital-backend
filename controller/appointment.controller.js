@@ -400,3 +400,47 @@ exports.recallPatient = async (req, res) => {
     });
   }
 };
+exports.getAppointmentsPaginated = async (req, res) => {
+  try {
+    console.log("📡 GET /api/appointments (paginated)");
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const filter = req.query.filter || "today";
+    const customDate = req.query.date || null;
+    const search = req.query.search || ""; // 👈 ADD THIS
+
+    console.log("🔍 QUERY:", { page, limit, filter, customDate, search });
+
+    const { data, total } = await Appointment.getAppointmentsPaginated(
+      page,
+      limit,
+      filter,
+      customDate,
+      search, // 👈 PASS HERE
+    );
+
+    console.log("📊 RESULT:", {
+      total,
+      returned: data.length,
+    });
+
+    res.json({
+      success: true,
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Controller getAppointmentsPaginated error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Database error",
+    });
+  }
+};

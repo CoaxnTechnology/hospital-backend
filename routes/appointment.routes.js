@@ -12,11 +12,10 @@ const { verifyFirebaseToken } = require("../middlewares/firebaseAuth");
 router.post(
   "/",
   //verifyToken,
- // allowRoles("admin", "staff","doctor"),
- verifyFirebaseToken,
-  appointmentController.createAppointment
+  // allowRoles("admin", "staff","doctor"),
+  verifyFirebaseToken,
+  appointmentController.createAppointment,
 );
-
 
 /**
  * ======================
@@ -26,10 +25,15 @@ router.post(
 router.get(
   "/",
   verifyToken,
-  allowRoles("admin", "staff","doctor"),
-  appointmentController.getAppointments
+  allowRoles("admin", "staff", "doctor"),
+  appointmentController.getAppointments,
 );
-
+router.get(
+  "/list",
+  verifyToken,
+  allowRoles("admin", "staff", "doctor"),
+  appointmentController.getAppointmentsPaginated,
+);
 
 /**
  * ======================
@@ -39,10 +43,9 @@ router.get(
 router.get(
   "/doctor/my",
   verifyToken,
-  allowRoles("doctor","admin"),
-  appointmentController.getMyAppointments
+  allowRoles("doctor", "admin"),
+  appointmentController.getMyAppointments,
 );
-
 
 /**
  * ======================
@@ -52,10 +55,9 @@ router.get(
 router.get(
   "/:id",
   verifyToken,
-  allowRoles("admin","doctor","staff"),
-  appointmentController.getAppointment
+  allowRoles("admin", "doctor", "staff"),
+  appointmentController.getAppointment,
 );
-
 
 /**
  * ======================
@@ -65,10 +67,9 @@ router.get(
 router.put(
   "/:id",
   verifyToken,
-  allowRoles("admin","staff","doctor"),
-  appointmentController.updateAppointment
+  allowRoles("admin", "staff", "doctor"),
+  appointmentController.updateAppointment,
 );
-
 
 /**
  * ======================
@@ -78,10 +79,9 @@ router.put(
 router.patch(
   "/:id/send-to-consultant",
   verifyToken,
-  allowRoles("admin","staff"),
-  appointmentController.sendToConsultant
+  allowRoles("admin", "staff"),
+  appointmentController.sendToConsultant,
 );
-
 
 /**
  * ======================
@@ -92,9 +92,8 @@ router.patch(
   "/:id/complete",
   verifyToken,
   allowRoles("doctor"),
-  appointmentController.completeConsultation
+  appointmentController.completeConsultation,
 );
-
 
 /**
  * ======================
@@ -105,9 +104,8 @@ router.delete(
   "/:id",
   verifyToken,
   allowRoles("admin"),
-  appointmentController.deleteAppointment
+  appointmentController.deleteAppointment,
 );
-
 
 /**
  * ======================
@@ -117,10 +115,9 @@ router.delete(
 router.get(
   "/queue",
   verifyToken,
-  allowRoles("admin","staff","doctor"),
-  appointmentController.getDoctorQueue
+  allowRoles("admin", "staff", "doctor"),
+  appointmentController.getDoctorQueue,
 );
-
 
 /**
  * ======================
@@ -130,10 +127,9 @@ router.get(
 router.post(
   "/queue/next",
   verifyToken,
-  allowRoles("doctor","admin"),
-  appointmentController.nextPatient
+  allowRoles("doctor", "admin"),
+  appointmentController.nextPatient,
 );
-
 
 /**
  * ======================
@@ -144,9 +140,8 @@ router.post(
   "/queue/skip",
   verifyToken,
   allowRoles("doctor"),
-  appointmentController.skipPatient
+  appointmentController.skipPatient,
 );
-
 
 /**
  * ======================
@@ -157,8 +152,7 @@ router.post(
   "/queue/recall",
   verifyToken,
   allowRoles("doctor"),
-  appointmentController.recallPatient
+  appointmentController.recallPatient,
 );
-
 
 module.exports = router;
