@@ -2,19 +2,11 @@ const Medicine = require("../models/medicine");
 const Sales = require("../models/sales");
 exports.createSale = async (req, res) => {
   try {
-    /* GENERATE INVOICE NUMBER */
-    const invoiceNumber = `INV-${Date.now()}`;
-
-    const saleData = {
-      ...req.body,
-      invoice_number: invoiceNumber,
-    };
-
-    const result = await Sales.processSale(saleData);
+    const result = await Sales.processSale(req.body);
 
     res.json({
       success: true,
-      invoice_number: invoiceNumber,
+      invoice_number: result.invoice_number, // 👈 yaha se lo
       data: result,
     });
   } catch (err) {

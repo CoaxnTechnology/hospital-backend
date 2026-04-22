@@ -68,12 +68,21 @@ exports.getFullPrescription = async (appointment_id) => {
   const sql = `
   SELECT 
     pr.*,
+    pm.medicine_id,
     pm.medicine_name,
+    m.name AS medicine_name_db,
+    m.selling_price,
+    m.gst_percentage,
     pm.dosage,
     pm.duration
   FROM prescription pr
   LEFT JOIN prescription_medicine pm 
     ON pm.prescription_id = pr.id
+  LEFT JOIN medicine m
+    ON (
+      m.id = pm.medicine_id
+      OR LOWER(m.name) = LOWER(pm.medicine_name)
+    )
   WHERE pr.appointment_id = ?
   `;
 

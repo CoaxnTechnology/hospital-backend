@@ -1,5 +1,7 @@
 const con = require("../config/db");
 const { sellMedicine } = require("./medicine");
+const calculateQty = require("../utils/calculateQty");
+const Prescription = require("./prescription");
 const createSale = async (data) => {
   const sql = `
   INSERT INTO sales
@@ -37,63 +39,89 @@ VALUES (?,?,?,?,?)
   ]);
 };
 const processSale = async (data) => {
-  const { patient_id, doctor_name, prescription_no, items, discount, notes } =
-    data;
+  const { prescription_no, discount = 0, notes } = data;
 
-  /* Generate Invoice Number */
-  const invoice_number = `MED-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
+  /* 🔥 fetch prescription */
+  const prescriptionData =
+    await Prescription.getFullPrescription(prescription_no);
 
-  /* subtotal */
+  if (!prescriptionData.length) {
+    throw new Error("Prescription not found");
+  }
+
+  /* auto patient + doctor */
+  const patient_id = prescriptionData[0].patient_id;
+  const doctor_name = prescriptionData[0].doctor_name;
+
+  /* Generate Invoice */
+  const invoice_number = `MED-${new Date().getFullYear()}-${Date.now()
+    .toString()
+    .slice(-5)}`;
+
   let subtotal = 0;
+  let totalGst = 0;
 
-  items.forEach((item) => {
-    subtotal += item.price * item.qty;
-  });
+  const items = [];
 
-  /* GST */
-  const gst = subtotal * 0.05;
+  for (const item of prescriptionData) {
+    const qty = calculateQty(item.dosage, item.duration);
 
-  /* total */
-  const total = subtotal + gst - discount;
+    const price = Number(item.selling_price || 0);
+    const gstPercent = Number(item.gst_percentage || 0);
+
+    const itemTotal = price * qty;
+    const itemGst = (itemTotal * gstPercent) / 100;
+
+    subtotal += itemTotal;
+    totalGst += itemGst;
+
+    items.push({
+      medicine_id: item.medicine_id,
+      qty,
+      price,
+      total: itemTotal + itemGst,
+    });
+  }
+
+  const total = subtotal + totalGst - discount;
 
   /* create sale */
-
   const saleId = await createSale({
     invoice_number,
     patient_id,
     doctor_name,
     prescription_no,
     subtotal,
-    gst,
+    gst: totalGst,
     discount,
     total,
     notes,
   });
 
   /* insert items + reduce stock */
-
   for (const item of items) {
     await addSaleItem({
       sale_id: saleId,
-      medicine_id: item.id,
+      medicine_id: item.medicine_id,
       qty: item.qty,
       price: item.price,
-      total: item.price * item.qty,
+      total: item.total,
     });
 
-    await sellMedicine(item.id, item.qty);
+    if (item.medicine_id) {
+      await sellMedicine(item.medicine_id, item.qty);
+    }
   }
 
   return {
     sale_id: saleId,
     invoice_number,
     subtotal,
-    gst,
+    gst: totalGst,
     total,
   };
 };
 const getSaleByInvoice = async (invoice) => {
-
   const sql = `
   SELECT 
     si.medicine_id,
@@ -106,7 +134,7 @@ const getSaleByInvoice = async (invoice) => {
   WHERE s.invoice_number = ?
   `;
 
-  const [rows] = await con.query(sql,[invoice]);
+  const [rows] = await con.query(sql, [invoice]);
 
   return rows;
 };
