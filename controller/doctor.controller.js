@@ -5,6 +5,8 @@ const Appointment = require("../models/appointment");
 const { generateResetToken } = require("../utils/token.util");
 const { sendResetPasswordEmail } = require("../utils/email.util");
 const { compressImage } = require("../utils/imageHelper");
+const fs = require("fs");
+const path = require("path");
 /**
  * SLOT GENERATOR
  */
@@ -53,6 +55,8 @@ exports.createDoctor = async (req, res) => {
       biography,
     } = req.body;
 
+    console.log("📥 REQUEST BODY:", req.body);
+
     if (!first_name || !email || !department) {
       return res.status(400).json({
         success: false,
@@ -60,19 +64,40 @@ exports.createDoctor = async (req, res) => {
       });
     }
 
-    // ✅ LOCAL IMAGE PATH
     let imageUrl = "";
 
     if (req.file) {
+      console.log("📸 FILE RECEIVED:", req.file.originalname);
+
       const filePath = req.file.path;
 
+      // 🔥 ORIGINAL SIZE (KB better)
+      const originalSize = fs.statSync(filePath).size / 1024;
+      console.log("📦 Original Size:", originalSize.toFixed(2), "KB");
+
+      // 🔥 COMPRESS
       const compressedFileName = await compressImage(filePath);
 
+      const compressedPath = path.join("uploads/doctors", compressedFileName);
+
+      // 🔥 CHECK COMPRESSED
+      if (fs.existsSync(compressedPath)) {
+        const compressedSize = fs.statSync(compressedPath).size / 1024;
+
+        console.log("✅ Compressed Size:", compressedSize.toFixed(2), "KB");
+      } else {
+        console.log("❌ Compressed file not found");
+      }
+
+      // ✅ USE COMPRESSED IMAGE
       imageUrl = `/uploads/doctors/${compressedFileName}`;
+
+      console.log("🖼 Image URL saved:", imageUrl);
+    } else {
+      console.log("❌ No file received");
     }
-    /**
-     * CREATE USER
-     */
+
+    // USER CREATE
     const userId = await User.createUserByAdmin({
       username: email,
       email,
@@ -80,9 +105,9 @@ exports.createDoctor = async (req, res) => {
       role: "doctor",
     });
 
-    /**
-     * CREATE DOCTOR PROFILE
-     */
+    console.log("👤 USER CREATED:", userId);
+
+    // DOCTOR CREATE
     await Doctor.addDoctor(
       userId,
       first_name,
@@ -97,23 +122,20 @@ exports.createDoctor = async (req, res) => {
       biography,
     );
 
-    /**
-     * GENERATE RESET TOKEN
-     */
+    console.log("💾 DOCTOR SAVED IN DB WITH IMAGE:", imageUrl);
+
+    // RESET TOKEN
     const resetToken = generateResetToken();
     await User.saveResetToken(userId, resetToken);
 
-    /**
-     * SEND EMAIL
-     */
     await sendResetPasswordEmail(email, resetToken);
 
     return res.status(201).json({
       success: true,
-      message: "Doctor created. Password reset link sent.",
+      message: "Doctor created successfully",
     });
   } catch (error) {
-    console.error("CREATE DOCTOR ERROR:", error);
+    console.error("❌ CREATE DOCTOR ERROR:", error);
 
     res.status(500).json({
       success: false,
@@ -121,7 +143,6 @@ exports.createDoctor = async (req, res) => {
     });
   }
 };
-
 /**
  * ======================
  * GET ALL DOCTORS
