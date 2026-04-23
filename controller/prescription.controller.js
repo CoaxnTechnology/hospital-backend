@@ -157,9 +157,13 @@ exports.createPrescription = async (req, res) => {
  */
 exports.getPrescription = async (req, res) => {
   try {
-    const appointment_id = req.params.appointment_id;
+    const id = req.params.appointment_id; // 👈 rename
 
-    const data = await Prescription.getFullPrescription(appointment_id);
+    console.log("ID RECEIVED:", id); // 🔥 DEBUG
+
+    const data = await Prescription.getFullPrescription(id);
+
+    console.log("DATA FROM DB:", data); // 🔥 DEBUG
 
     res.json({
       success: true,

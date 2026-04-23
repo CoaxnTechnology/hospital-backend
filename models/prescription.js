@@ -64,29 +64,44 @@ exports.updateAppointmentStatus = async (appointment_id) => {
 
   await db.query(sql, [appointment_id]);
 };
-exports.getFullPrescription = async (appointment_id) => {
+exports.getFullPrescription = async (id) => {
   const sql = `
   SELECT 
-    pr.*,
-    pm.medicine_id,
+    pr.id,
+    pr.patient_id,
+
+    pt.name AS patient_name,
+    pt.phone AS mobile,
+    pt.age,
+
+    CONCAT(d.first_name, ' ', d.last_name) AS doctor_name,
+
     pm.medicine_name,
-    m.name AS medicine_name_db,
+    pm.dosage,
+    pm.duration,
+
     m.selling_price,
     m.gst_percentage,
-    pm.dosage,
-    pm.duration
+    m.quantity AS stock   -- ✅ ADD THIS LINE
+
   FROM prescription pr
+
+  LEFT JOIN patient pt 
+    ON pt.id = pr.patient_id
+
+  LEFT JOIN doctor d 
+    ON d.id = pr.doctor_id
+
   LEFT JOIN prescription_medicine pm 
     ON pm.prescription_id = pr.id
+
   LEFT JOIN medicine m
-    ON (
-      m.id = pm.medicine_id
-      OR LOWER(m.name) = LOWER(pm.medicine_name)
-    )
-  WHERE pr.appointment_id = ?
+    ON LOWER(m.name) LIKE CONCAT('%', LOWER(pm.medicine_name), '%')
+
+  WHERE pr.id = ?
   `;
 
-  const [rows] = await db.query(sql, [appointment_id]);
+  const [rows] = await db.query(sql, [id]);
 
   return rows;
 };

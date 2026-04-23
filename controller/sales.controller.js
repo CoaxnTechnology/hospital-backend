@@ -45,3 +45,21 @@ exports.getSaleByInvoice = async (req, res) => {
     });
   }
 };
+exports.getSalesByPatient = async (req, res) => {
+  try {
+    const patientId = req.params.id;
+
+    const sales = await Sales.getSalesByPatient(patientId);
+
+    res.json({
+      success: true,
+      data: sales,
+    });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      success: false,
+    });
+  }
+};

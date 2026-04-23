@@ -13,4 +13,5 @@ allowRoles("admin","staff","doctor"),
 sellController.createSale
 );
 router.get("/invoice/:invoice",sellController.getSaleByInvoice);
+router.get("/patient/:id", sellController.getSalesByPatient);
 module.exports = router;
