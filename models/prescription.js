@@ -35,20 +35,6 @@ exports.addMedicines = async (prescriptionId, medicines) => {
   await db.query(sql, [values]);
 };
 
-/**
- * ======================
- * UPDATE PDF PATH
- * ======================
- */
-exports.updatePdfPath = async (id, path) => {
-  const sql = `
-  UPDATE prescription
-  SET pdf_path=?
-  WHERE id=?
-  `;
-
-  await db.query(sql, [path, id]);
-};
 
 /**
  * ======================

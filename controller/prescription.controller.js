@@ -1,7 +1,5 @@
 const Prescription = require("../models/prescription");
-const generatePDF = require("../utils/generatePrescriptionPDF");
 const con = require("../config/db");
-const generateHTML = require("../utils/prescriptionTemplate");
 const fs = require("fs");
 /**
  * CREATE PRESCRIPTION
@@ -38,107 +36,17 @@ exports.createPrescription = async (req, res) => {
     }
 
     /**
-     * 3️⃣ Get patient + doctor data (🔥 UPDATED)
-     */
-    const [rows] = await con.query(
-      `
-      SELECT 
-        p.id,
-        p.name as patient_name,
-        p.age,
-        p.phone as mobile,
-        CONCAT(d.first_name, ' ', d.last_name) as doctor_name,
-        d.department,
-        d.signature   -- ✅ ADDED
-      FROM patient p
-      JOIN doctor d ON d.id = ?
-      WHERE p.id = ?
-      `,
-      [doctor_id, patient_id],
-    );
-
-    const patientData = rows[0] || {};
-
-    /**
-     * 4️⃣ Get hospital data
-     */
-    const [hospitalRows] = await con.query(
-      `SELECT name, address, logo FROM hospital LIMIT 1`,
-    );
-
-    const hospitalData = hospitalRows[0] || {};
-
-    /**
-     * 5️⃣ Generate HTML (🔥 UPDATED)
-     */
-    const BASE_URL = "https://hospital.clinicalgynecologists.space";
-
-    const htmlContent = generateHTML({
-      hospital: {
-        name: hospitalData?.name || "Hospital",
-        address: hospitalData?.address || "",
-        logo: hospitalData?.logo
-          ? `${BASE_URL}${hospitalData.logo}` // ✅ FIXED
-          : "",
-      },
-      patient: {
-        id: patientData?.id || "N/A",
-        name: patientData?.patient_name || "N/A",
-        age: patientData?.age || "-",
-        mobile: patientData?.mobile || "-",
-      },
-      doctor: {
-        name: patientData?.doctor_name || "N/A",
-        department: patientData?.department || "General",
-        signature: patientData?.signature || "", // ✅ ADDED
-      },
-      medicines: medicines || [],
-      date: new Date().toLocaleDateString(),
-    });
-
-    /**
-     * 6️⃣ Generate PDF
-     */
-    const path = require("path");
-
-    const fileName = `prescription_${prescriptionId}.pdf`;
-    const filePath = path.join(
-      __dirname,
-      "..",
-      "uploads",
-      "prescriptions",
-      fileName,
-    );
-
-    const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    await generatePDF({
-      htmlContent,
-      filePath,
-    });
-
-    /**
-     * 7️⃣ Save path in DB
-     */
-    const dbPath = `/uploads/prescriptions/${fileName}`;
-    await Prescription.updatePdfPath(prescriptionId, dbPath);
-
-    /**
-     * 8️⃣ Update appointment status
+     * 3️⃣ Update appointment status
      */
     await Prescription.updateAppointmentStatus(appointment_id);
 
     /**
-     * 9️⃣ Response
+     * 4️⃣ Response (NO PDF)
      */
     return res.json({
       success: true,
-      message: "Prescription created successfully",
+      message: "Prescription saved successfully",
       prescriptionId,
-      pdf: dbPath,
     });
   } catch (error) {
     console.error("❌ CREATE PRESCRIPTION ERROR:", error);
@@ -149,7 +57,6 @@ exports.createPrescription = async (req, res) => {
     });
   }
 };
-
 /**
  * ======================
  * GET PRESCRIPTION BY APPOINTMENT
