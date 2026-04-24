@@ -10,26 +10,48 @@ const { sendResetPasswordEmail } = require("../utils/email.util");
  */
 exports.getAllEmployees = async (req, res) => {
   try {
+    console.log("👉 CONTROLLER HIT");
 
-    const result = await Employee.getAllemployee();
+    // ✅ ADMIN CHECK
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin can access employees",
+      });
+    }
+
+    // 📥 QUERY PARAMS
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
+
+    console.log("👉 page:", page);
+    console.log("👉 limit:", limit);
+    console.log("👉 search:", search);
+
+    const result = await Employee.getEmployeesWithPagination(
+      page,
+      limit,
+      search
+    );
 
     return res.status(200).json({
       success: true,
-      data: result,
+      data: result.data,
+      total: result.total,
+      page,
+      limit,
     });
 
   } catch (error) {
-
     console.error("GET ALL EMPLOYEES ERROR:", error);
 
     return res.status(500).json({
       success: false,
       message: "Failed to fetch employees",
     });
-
   }
 };
-
 
 /**
  * ======================

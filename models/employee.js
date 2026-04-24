@@ -13,9 +13,8 @@ exports.addEmployee = async (
   join_date,
   role,
   designation,
-  salary
+  salary,
 ) => {
-
   const sql = `
   INSERT INTO employee
   (user_id, name, email, contact, join_date, role, designation, salary)
@@ -30,12 +29,11 @@ exports.addEmployee = async (
     join_date,
     role,
     designation,
-    salary
+    salary,
   ]);
 
   return result.insertId;
 };
-
 
 /**
  * ======================
@@ -43,14 +41,12 @@ exports.addEmployee = async (
  * ======================
  */
 exports.getEmpbyId = async (id) => {
-
   const sql = `SELECT * FROM employee WHERE id = ?`;
 
   const [rows] = await db.query(sql, [id]);
 
   return rows[0];
 };
-
 
 /**
  * ======================
@@ -65,9 +61,8 @@ exports.editEmp = async (
   join_date,
   role,
   designation,
-  salary
+  salary,
 ) => {
-
   const sql = `
   UPDATE employee
   SET
@@ -89,12 +84,11 @@ exports.editEmp = async (
     role,
     designation,
     salary,
-    id
+    id,
   ]);
 
   return result;
 };
-
 
 /**
  * ======================
@@ -102,7 +96,6 @@ exports.editEmp = async (
  * ======================
  */
 exports.deleteEmp = async (id) => {
-
   const sql = `DELETE FROM employee WHERE id = ?`;
 
   const [result] = await db.query(sql, [id]);
@@ -110,14 +103,12 @@ exports.deleteEmp = async (id) => {
   return result;
 };
 
-
 /**
  * ======================
  * SEARCH EMPLOYEE
  * ======================
  */
 exports.searchEmp = async (key) => {
-
   const sql = `
   SELECT *
   FROM employee
@@ -129,33 +120,85 @@ exports.searchEmp = async (key) => {
   return rows;
 };
 
-
 /**
  * ======================
  * GET ALL EMPLOYEES
  * ======================
  */
-exports.getAllemployee = async () => {
+exports.getEmployeesWithPagination = async (page, limit, search) => {
+  console.log("👉 MODEL: page:", page, "limit:", limit, "search:", search);
 
-  const sql = `
-  SELECT *
-  FROM employee
-  ORDER BY id DESC
+  const offset = (page - 1) * limit;
+
+  let sql = `
+    SELECT *
+    FROM employee
+    WHERE 1
   `;
 
-  const [rows] = await db.query(sql);
+  let params = [];
 
-  return rows;
+  if (search) {
+    sql += `
+      AND (
+        name LIKE ?
+        OR email LIKE ?
+        OR contact LIKE ?
+        OR id = ?
+      )
+    `;
+
+    params.push(
+      `%${search}%`, // name
+      `%${search}%`, // email
+      `%${search}%`, // ✅ correct, // contact (starts with)
+      Number(search) || 0, // id exact
+    );
+  }
+
+  sql += ` ORDER BY id DESC LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
+
+  console.log("👉 SQL:", sql);
+  console.log("👉 PARAMS:", params);
+
+  const [rows] = await db.query(sql, params);
+
+  // 👉 COUNT QUERY
+  let countSql = `SELECT COUNT(*) as total FROM employee WHERE 1`;
+  let countParams = [];
+
+  if (search) {
+    countSql += `
+      AND (
+        name LIKE ?
+        OR email LIKE ?
+        OR contact LIKE ?
+        OR id = ?
+      )
+    `;
+
+    countParams.push(
+      `%${search}%`,
+      `%${search}%`,
+      `${search}%`,
+      Number(search) || 0,
+    );
+  }
+
+  const [countResult] = await db.query(countSql, countParams);
+
+  return {
+    data: rows,
+    total: countResult[0].total,
+  };
 };
-
-
 /**
  * ======================
  * GET EMPLOYEE BY USER ID
  * ======================
  */
 exports.getEmpByUserId = async (user_id) => {
-
   const sql = `
   SELECT *
   FROM employee
