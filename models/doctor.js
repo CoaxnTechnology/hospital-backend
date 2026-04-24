@@ -301,32 +301,38 @@ exports.getDoctorsByDepartment = async (department) => {
   return rows;
 };
 exports.getAvailableSlots = async (doctor_id, date) => {
-  const schedule = await this.getDoctorSchedule(doctor_id, date);
+  const schedules = await this.getDoctorSchedule(doctor_id, date);
 
-  if (!schedule.length) return [];
+  if (!schedules.length) return [];
 
-  const { start_time, end_time, slot_duration } = schedule[0];
+  let allSlots = [];
 
-  const slots = [];
+  // 🔥 LOOP THROUGH ALL SCHEDULES (MAIN FIX)
+  for (const sch of schedules) {
+    let start = new Date(`1970-01-01T${sch.start_time}`);
+    let end = new Date(`1970-01-01T${sch.end_time}`);
 
-  let start = new Date(`1970-01-01T${start_time}`);
-  let end = new Date(`1970-01-01T${end_time}`);
-
-  while (start < end) {
-    const time = start.toTimeString().slice(0, 5);
-    slots.push(time);
-    start.setMinutes(start.getMinutes() + slot_duration);
+    while (start < end) {
+      const time = start.toTimeString().slice(0, 5);
+      allSlots.push(time);
+      start.setMinutes(start.getMinutes() + sch.slot_duration);
+    }
   }
 
-  // 🔥 booked slots (appointment se aayega)
+  console.log("📌 ALL SLOTS (COMBINED):", allSlots);
+
+  // 🔥 booked slots
   const [rows] = await db.query(
     `SELECT time FROM appointment WHERE doctor_id=? AND date=?`,
     [doctor_id, date],
   );
 
-  const booked = rows.map((r) => r.time);
+  const booked = rows.map((r) => r.time.slice(0, 5));
 
-  return slots.filter((s) => !booked.includes(s));
+  return allSlots.map((time) => ({
+    time,
+    booked: booked.includes(time),
+  }));
 };
 exports.getAllDoctorSchedules = async () => {
   const sql = `

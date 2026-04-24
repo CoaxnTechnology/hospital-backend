@@ -14,28 +14,23 @@ const path = require("path");
 function generateSlots(schedule) {
   if (!schedule || schedule.length === 0) return [];
 
-  const s = schedule[0];
-
-  const start = s.start_time;
-  const end = s.end_time;
-  const duration = s.slot_duration;
-
   const slots = [];
 
-  let current = new Date(`1970-01-01T${start}`);
-  const endTime = new Date(`1970-01-01T${end}`);
+  // 🔥 LOOP THROUGH ALL SCHEDULES
+  for (const s of schedule) {
+    let current = new Date(`1970-01-01T${s.start_time}`);
+    const endTime = new Date(`1970-01-01T${s.end_time}`);
 
-  while (current < endTime) {
-    const time = current.toTimeString().slice(0, 5);
+    while (current < endTime) {
+      const time = current.toTimeString().slice(0, 5);
+      slots.push(time);
 
-    slots.push(time);
-
-    current.setMinutes(current.getMinutes() + duration);
+      current.setMinutes(current.getMinutes() + s.slot_duration);
+    }
   }
 
   return slots;
 }
-
 /**
  * ======================
  * CREATE DOCTOR (ADMIN)
