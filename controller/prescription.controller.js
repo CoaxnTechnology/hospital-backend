@@ -10,51 +10,39 @@ const fs = require("fs");
  */
 exports.createPrescription = async (req, res) => {
   try {
+    console.log("📥 INCOMING REQUEST BODY:", req.body);
+
     const { appointment_id, doctor_id, patient_id, medicines } = req.body;
 
-    if (!appointment_id || !doctor_id || !patient_id) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
-      });
-    }
-
-    /**
-     * 1️⃣ Create prescription
-     */
     const prescriptionId = await Prescription.createPrescription({
       appointment_id,
       doctor_id,
       patient_id,
     });
 
+    console.log("✅ PRESCRIPTION CREATED ID:", prescriptionId);
+
     /**
-     * 2️⃣ Insert medicines
+     * 🔥 CHECK DB RIGHT AFTER INSERT
      */
+    const [check] = await con.query("SELECT * FROM prescription WHERE id = ?", [
+      prescriptionId,
+    ]);
+
+    console.log("🧾 DB RECORD AFTER CREATE:", check[0]);
+
     if (medicines && medicines.length > 0) {
       await Prescription.addMedicines(prescriptionId, medicines);
     }
 
-    /**
-     * 3️⃣ Update appointment status
-     */
     await Prescription.updateAppointmentStatus(appointment_id);
 
-    /**
-     * 4️⃣ Response (NO PDF)
-     */
     return res.json({
       success: true,
-      message: "Prescription saved successfully",
       prescriptionId,
     });
   } catch (error) {
     console.error("❌ CREATE PRESCRIPTION ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
   }
 };
 /**

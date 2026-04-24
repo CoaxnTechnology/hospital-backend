@@ -1,5 +1,5 @@
 const Appointment = require("../models/appointment");
-
+const db = require("../config/db");
 /**
  * CREATE APPOINTMENT
  */
@@ -347,19 +347,35 @@ exports.getDoctorQueue = async (req, res) => {
  */
 exports.nextPatient = async (req, res) => {
   try {
-    const { doctor_id, date } = req.body;
+    console.log("➡️ CONTROLLER: NEXT PATIENT HIT");
 
-    await Appointment.nextPatient(doctor_id, date);
+    const { doctor_id } = req.body;
+
+    console.log("📥 RAW BODY:", req.body);
+    console.log("📥 doctor_id:", doctor_id, typeof doctor_id);
+
+    if (!doctor_id) {
+      console.log("❌ Missing doctor_id");
+      return res.status(400).json({
+        success: false,
+        message: "doctor_id required",
+      });
+    }
+
+    await Appointment.nextPatient(doctor_id);
+
+    console.log("✅ CONTROLLER SUCCESS");
 
     res.json({
       success: true,
       message: "Next patient called",
     });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error("❌ CONTROLLER ERROR:", error);
 
     res.status(500).json({
       success: false,
+      message: error.message,
     });
   }
 };

@@ -286,44 +286,95 @@ exports.getAllAppointments = async (filter, customDate) => {
  * ======================
  */
 
-exports.nextPatient = async (doctor_id, date) => {
+
+exports.nextPatient = async (doctor_id) => {
   const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    console.log("➡️ NEXT PATIENT CALLED");
+    console.log("➡️ MODEL: NEXT PATIENT START");
 
-    // ❌ pehle existing active hatao
-    await connection.query(
+    // ✅ SAFE TYPE
+    const safeDoctorId = Number(doctor_id);
+
+    // ✅ ONLY TODAY DATE
+    const today = new Date().toISOString().split("T")[0];
+
+    console.log("📥 doctor_id:", safeDoctorId);
+    console.log("📥 TODAY DATE:", today);
+
+    // 🔍 CHECK TODAY APPOINTMENTS
+    const [todayAppointments] = await connection.query(
+      `SELECT id, status, token_number 
+       FROM appointment 
+       WHERE doctor_id=? AND DATE(date)=?`,
+      [safeDoctorId, today]
+    );
+
+    console.log("📅 TODAY APPOINTMENTS:", todayAppointments);
+
+    // 🔍 CHECK PENDING
+    const [pending] = await connection.query(
+      `SELECT id, token_number 
+       FROM appointment 
+       WHERE doctor_id=? AND DATE(date)=? AND status='Pending'
+       ORDER BY token_number ASC`,
+      [safeDoctorId, today]
+    );
+
+    console.log("🟡 PENDING PATIENTS:", pending);
+
+    // ❌ REMOVE CURRENT ACTIVE
+    const [removeActive] = await connection.query(
       `UPDATE appointment
        SET status='Pending'
-       WHERE doctor_id=? AND date=? AND status='In Consultation'`,
-      [doctor_id, date],
+       WHERE doctor_id=? AND DATE(date)=? AND status='In Consultation'`,
+      [safeDoctorId, today]
     );
 
-    // ✅ next patient active karo
-    await connection.query(
+    console.log("🔄 REMOVED ACTIVE:", removeActive.affectedRows);
+
+    // ❌ NO PENDING
+    if (pending.length === 0) {
+      console.log("❌ NO PENDING PATIENT FOUND");
+
+      await connection.commit();
+      return;
+    }
+
+    const nextId = pending[0].id;
+
+    console.log("👉 NEXT PATIENT ID:", nextId);
+
+    // ✅ SET NEXT PATIENT
+    const [updateNext] = await connection.query(
       `UPDATE appointment
        SET status='In Consultation'
-       WHERE id = (
-         SELECT id FROM (
-           SELECT id
-           FROM appointment
-           WHERE doctor_id=? AND date=? AND status='Pending'
-           ORDER BY token_number ASC
-           LIMIT 1
-         ) AS t
-       )`,
-      [doctor_id, date],
+       WHERE id=?`,
+      [nextId]
     );
+
+    console.log("✅ UPDATED NEXT:", updateNext.affectedRows);
+
+    // 🔍 VERIFY
+    const [afterUpdate] = await connection.query(
+      `SELECT id, status, token_number 
+       FROM appointment 
+       WHERE doctor_id=? AND DATE(date)=?`,
+      [safeDoctorId, today]
+    );
+
+    console.log("📊 AFTER UPDATE:", afterUpdate);
 
     await connection.commit();
 
-    console.log("✅ NEXT PATIENT SET");
+    console.log("✅ MODEL SUCCESS");
   } catch (err) {
     await connection.rollback();
-    console.error("❌ NEXT PATIENT ERROR:", err);
+
+    console.error("❌ MODEL ERROR:", err);
+
     throw err;
   } finally {
     connection.release();
