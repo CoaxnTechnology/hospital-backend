@@ -30,3 +30,31 @@ exports.sendResetPasswordEmail = async (email, token) => {
     `,
   });
 };
+/**
+ * ==============================
+ * CONTACT FORM EMAIL 🔥 NEW
+ * ==============================
+ */
+exports.sendContactEmail = async (data) => {
+  const { name, email, phone, message } = data;
+
+  try {
+    const info = await transporter.sendMail({
+      from: `"Website Contact" <${process.env.EMAIL_USER}>`,
+      to: process.env.EMAIL_USER,
+      subject: "New Contact Query",
+      html: `
+        <h3>New Contact Form Submission</h3>
+        <p><b>Name:</b> ${name}</p>
+        <p><b>Email:</b> ${email}</p>
+        <p><b>Phone:</b> ${phone}</p>
+        <p><b>Message:</b> ${message}</p>
+      `,
+    });
+
+    console.log("✅ EMAIL SENT:", info.response); // 🔥 ADD THIS
+  } catch (err) {
+    console.error("❌ MAIL ERROR:", err); // 🔥 ADD THIS
+    throw err;
+  }
+};

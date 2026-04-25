@@ -24,6 +24,7 @@ const servicesRoutes = require("./routes/services.routes");
 const blogRoutes = require("./routes/blog.routes");
 const branchRoutes = require("./routes/branch.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const contactRoutes = require("./routes/contact.routes");
 const app = express();
 
 /* =========================
@@ -67,6 +68,8 @@ app.use("/api/blogs", blogRoutes);
 
 app.use("/branches", branchRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+
+app.use("/api/contact", contactRoutes);
 /* =========================
 TEST ROUTE
 ========================= */
