@@ -1,5 +1,5 @@
 const Blog = require("../models/blog");
-const { compressImage } = require("../utils/imageHelper");
+
 /**
  * CREATE BLOG
  */
@@ -8,16 +8,13 @@ exports.createBlog = async (req, res) => {
     let image = null;
 
     if (req.file) {
-      const filePath = req.file.path;
-      const compressedFileName = await compressImage(filePath);
-      image = `/uploads/blogs/${compressedFileName}`;
+      image = `/uploads/blogs/${req.file.filename}`;
+      console.log("📦 Uploaded:", req.file.filename);
     }
 
     const data = {
       ...req.body,
-      image: req.file
-        ? `/uploads/blogs/${req.file.filename}` // ✅ LOCAL PATH
-        : null,
+      image,
     };
 
     await Blog.addBlog(data);
@@ -74,14 +71,10 @@ exports.updateBlog = async (req, res) => {
     let image = existing?.image;
 
     if (req.file) {
-      const filePath = req.file.path;
+      image = `/uploads/blogs/${req.file.filename}`;
+      console.log("📦 New image:", req.file.filename);
 
-      // 🔥 COMPRESS IMAGE
-      const compressedFileName = await compressImage(filePath);
-
-      image = `/uploads/blogs/${compressedFileName}`;
-
-      // 🔥 OLD IMAGE DELETE
+      // optional old delete
       if (existing?.image) {
         const oldPath = "uploads/blogs/" + existing.image.split("/").pop();
 
@@ -91,12 +84,10 @@ exports.updateBlog = async (req, res) => {
       }
     }
 
-    const data = {
+    await Blog.updateBlog(req.params.id, {
       ...req.body,
       image,
-    };
-
-    await Blog.updateBlog(req.params.id, data);
+    });
 
     res.json({
       success: true,
@@ -104,11 +95,7 @@ exports.updateBlog = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ UPDATE BLOG ERROR:", err);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update blog",
-    });
+    res.status(500).json({ success: false });
   }
 };
 /**
