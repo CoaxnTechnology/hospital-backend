@@ -1,5 +1,5 @@
 const Hospital = require("../models/hospital");
-
+const fs = require("fs");
 /* ======================
    GET
 ====================== */
@@ -34,9 +34,10 @@ exports.save = async (req, res) => {
     if (req.file) {
       const filePath = req.file.path;
 
-      const compressedFileName = await compressImage(filePath);
-
-      logoPath = `/uploads/hospital/${compressedFileName}`;
+      const sizeKB = fs.statSync(filePath).size / 1024;
+      console.log("📦 Uploaded Size:", sizeKB.toFixed(2), "KB");
+      // ✅ DIRECT SAVE (NO COMPRESSION)
+      logoPath = `/uploads/hospital/${req.file.filename}`;
     }
 
     const data = {
