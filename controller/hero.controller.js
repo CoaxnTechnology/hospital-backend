@@ -1,5 +1,4 @@
 const Hero = require("../models/hero");
-const { compressImage } = require("../utils/imageHelper");
 /**
  * CREATE
  */
@@ -7,10 +6,11 @@ exports.createHero = async (req, res) => {
   try {
     let image = null;
 
+    // 🔥 FRONTEND ALREADY COMPRESSED → JUST SAVE
     if (req.file) {
-      const filePath = req.file.path;
-      const compressedFileName = await compressImage(filePath);
-      image = `/uploads/hero/${compressedFileName}`;
+      image = `/uploads/hero/${req.file.filename}`;
+
+      console.log("📦 Uploaded file:", req.file.filename);
     }
 
     const id = await Hero.addHero({
@@ -26,11 +26,14 @@ exports.createHero = async (req, res) => {
       image,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Error creating hero" });
+    console.error("❌ CREATE HERO ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Error creating hero",
+    });
   }
 };
-
 /**
  * GET ALL
  */
@@ -52,12 +55,13 @@ exports.updateHero = async (req, res) => {
 
     const existing = await Hero.getHeroById(id);
 
- let image = existing?.image;
+    // 🔥 Default: पुरानी image
+    let image = existing?.image || null;
 
+    // 🔥 अगर नई file आई है → replace
     if (req.file) {
-      const filePath = req.file.path;
-      const compressedFileName = await compressImage(filePath);
-      image = `/uploads/hero/${compressedFileName}`;
+      image = `/uploads/hero/${req.file.filename}`;
+      console.log("📦 New image uploaded:", req.file.filename);
     }
 
     await Hero.updateHero(id, {
@@ -69,10 +73,14 @@ exports.updateHero = async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ message: "Error updating hero" });
+    console.error("❌ UPDATE HERO ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Error updating hero",
+    });
   }
 };
-
 /**
  * DELETE
  */
