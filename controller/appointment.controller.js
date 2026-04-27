@@ -3,46 +3,20 @@ const db = require("../config/db");
 /**
  * CREATE APPOINTMENT
  */
-/**
- * CREATE APPOINTMENT
- */
-/**
- * ======================
- * CREATE APPOINTMENT
- * ======================
- */
 exports.createAppointment = async (req, res) => {
   try {
-    // 🔥 1. FIREBASE VERIFY CHECK (ADD THIS)
     const firebaseUser = req.firebaseUser;
     console.log("📲 Firebase User:", firebaseUser);
+
+    // 🔥 OTP CHECK
     if (!firebaseUser || !firebaseUser.phone_number) {
-      console.log(
-        "⚠️ Firebase verification failed or phone number missing:",
-        firebaseUser,
-      );
       return res.status(400).json({
         success: false,
         message: "Phone not verified",
       });
     }
-    console.log("✅ Firebase verified phone:", firebaseUser.phone_number);
 
     const {
-      patient_id,
-      patient_name,
-      phone,
-      age, // 🔥 ADD THIS
-      gender, // 🔥 ADD THIS
-      department,
-      doctor_id,
-      date,
-      time,
-      problem,
-    } = req.body;
-
-    console.log("📥 REQUEST BODY:", req.body);
-    console.log("🔎 Validation values:", {
       patient_id,
       patient_name,
       phone,
@@ -53,26 +27,57 @@ exports.createAppointment = async (req, res) => {
       date,
       time,
       problem,
-    });
+    } = req.body;
 
-    // 🔥 PHONE MATCH CHECK
+    console.log("📥 REQUEST BODY:", req.body);
+
+    // 🔥 FRONTEND PHONE FORMAT
     const expectedPhone = phone ? "+91" + phone : null;
-    console.log("📞 Frontend Phone:", phone);
-    console.log("📞 Expected Firebase Phone:", expectedPhone);
-    console.log("📞 Firebase Phone:", firebaseUser.phone_number);
 
+    console.log("📞 Expected:", expectedPhone);
+    console.log("📞 Firebase:", firebaseUser.phone_number);
+
+    // 🔥 PHONE MATCH CHECK (IMPORTANT)
     if (phone && firebaseUser.phone_number !== expectedPhone) {
-      console.log("❌ Phone mismatch detected", {
-        frontendPhone: phone,
-        expectedPhone,
-        firebasePhone: firebaseUser.phone_number,
-      });
       return res.status(400).json({
         success: false,
         message: "Phone number mismatch",
       });
     }
-    console.log("✅ Phone matched");
+
+    /**
+     * ======================
+     * CASE 1: ID GIVEN
+     * ======================
+     */
+    if (patient_id) {
+      console.log("📌 ID CASE");
+
+      const [rows] = await db.query("SELECT phone FROM patient WHERE id=?", [
+        patient_id,
+      ]);
+
+      if (!rows.length) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid patient ID",
+        });
+      }
+
+      const patientPhone = "+91" + rows[0].phone;
+
+      console.log("📞 DB Phone:", patientPhone);
+
+      // 🔥 FINAL SECURITY CHECK
+      if (firebaseUser.phone_number !== patientPhone) {
+        return res.status(400).json({
+          success: false,
+          message: "Phone does not match patient ID",
+        });
+      }
+
+      console.log("✅ ID + Phone verified");
+    }
 
     /**
      * ======================
@@ -80,24 +85,13 @@ exports.createAppointment = async (req, res) => {
      * ======================
      */
     if (!doctor_id || !date || !time) {
-      console.log("⚠️ Validation failed: missing doctor, date, or time", {
-        doctor_id,
-        date,
-        time,
-      });
       return res.status(400).json({
         success: false,
-        message: "Doctor, date and time are required",
+        message: "Doctor, date and time required",
       });
     }
 
-    // If no patient_id → need name + phone
     if (!patient_id && (!patient_name || !phone)) {
-      console.log("⚠️ Validation failed: missing patient details", {
-        patient_id,
-        patient_name,
-        phone,
-      });
       return res.status(400).json({
         success: false,
         message: "Patient details required",
@@ -105,8 +99,8 @@ exports.createAppointment = async (req, res) => {
     }
 
     /**
-     * ======================
-     * CALL SERVICE / MODEL
+     * ========================
+     * CALL MODEL
      * ======================
      */
     const appointmentPayload = {
@@ -121,16 +115,13 @@ exports.createAppointment = async (req, res) => {
       time,
       problem,
     };
-    console.log("🧾 Appointment payload to model:", appointmentPayload);
+
+    console.log("📦 FINAL PAYLOAD:", appointmentPayload);
 
     const result = await Appointment.addAppointment(appointmentPayload);
-    console.log("✅ Appointment created result:", result);
 
-    /**
-     * ======================
-     * SUCCESS RESPONSE
-     * ======================
-     */
+    console.log("✅ SUCCESS:", result);
+
     return res.status(201).json({
       success: true,
       message: "Appointment booked successfully",
@@ -140,7 +131,7 @@ exports.createAppointment = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ CONTROLLER ERROR:", error);
+    console.error("❌ ERROR:", error);
 
     if (
       error.message === "Slot already booked" ||
