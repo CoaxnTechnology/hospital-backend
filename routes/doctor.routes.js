@@ -50,7 +50,7 @@ router.get(
   "/private",
   verifyToken,
   allowRoles("admin", "doctor"),
-  doctorController.getPrivateDoctors
+  doctorController.getPrivateDoctors,
 );
 
 /**
@@ -62,14 +62,10 @@ router.post(
   "/addschedule",
   verifyToken,
   allowRoles("doctor", "admin"),
-  doctorController.addDoctorSchedule
+  doctorController.addDoctorSchedule,
 );
 
-router.get(
-  "/schedule",
-  verifyToken,
-  doctorController.getDoctorSchedule
-);
+router.get("/schedule", verifyToken, doctorController.getDoctorSchedule);
 
 /**
  * ======================
@@ -85,7 +81,6 @@ router.get("/department/:department", doctorController.getDoctorsByDepartment);
  */
 router.get("/", doctorController.getAllDoctors);
 
-
 /**
  * ======================
  * DOCTOR CRUD
@@ -96,7 +91,7 @@ router.post(
   verifyToken,
   allowRoles("admin"),
   uploadDoctor.single("image"),
-  doctorController.createDoctor
+  doctorController.createDoctor,
 );
 
 /**
@@ -108,7 +103,7 @@ router.get(
   "/:id",
   verifyToken,
   allowRoles("admin"),
-  doctorController.getDoctorById
+  doctorController.getDoctorById,
 );
 
 router.put(
@@ -116,14 +111,14 @@ router.put(
   verifyToken,
   allowRoles("admin"),
   uploadDoctor.single("image"),
-  doctorController.updateDoctor
+  doctorController.updateDoctor,
 );
 
 router.delete(
   "/:id",
   verifyToken,
   allowRoles("admin"),
-  doctorController.deleteDoctor
+  doctorController.deleteDoctor,
 );
 
 /**
@@ -134,16 +129,16 @@ router.delete(
 router.post(
   "/signature",
   verifyToken,
-  allowRoles("doctor"),
+  allowRoles("doctor", "admin"),
   uploadSignature.single("signature"),
-  doctorController.uploadSignature
+  doctorController.uploadSignature,
 );
 
 router.get(
   "/signature",
   verifyToken,
-  allowRoles("doctor"),
-  doctorController.getSignature
+  allowRoles("doctor", "admin", "staff"),
+  doctorController.getSignature,
 );
 
 module.exports = router;

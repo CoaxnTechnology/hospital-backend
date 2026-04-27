@@ -4,7 +4,6 @@ const User = require("../models/user");
 const Appointment = require("../models/appointment");
 const { generateResetToken } = require("../utils/token.util");
 const { sendResetPasswordEmail } = require("../utils/email.util");
-const { compressImage } = require("../utils/imageHelper");
 const fs = require("fs");
 const path = require("path");
 /**
@@ -52,6 +51,7 @@ exports.createDoctor = async (req, res) => {
 
     console.log("📥 REQUEST BODY:", req.body);
 
+    // ✅ VALIDATION
     if (!first_name || !email || !department) {
       return res.status(400).json({
         success: false,
@@ -61,38 +61,25 @@ exports.createDoctor = async (req, res) => {
 
     let imageUrl = "";
 
+    // ✅ IMAGE HANDLE (NO BACKEND COMPRESSION)
     if (req.file) {
       console.log("📸 FILE RECEIVED:", req.file.originalname);
 
       const filePath = req.file.path;
 
-      // 🔥 ORIGINAL SIZE (KB better)
-      const originalSize = fs.statSync(filePath).size / 1024;
-      console.log("📦 Original Size:", originalSize.toFixed(2), "KB");
+      // 📦 SIZE CHECK
+      const sizeKB = fs.statSync(filePath).size / 1024;
+      console.log("📦 Uploaded Size:", sizeKB.toFixed(2), "KB");
 
-      // 🔥 COMPRESS
-      const compressedFileName = await compressImage(filePath);
-
-      const compressedPath = path.join("uploads/doctors", compressedFileName);
-
-      // 🔥 CHECK COMPRESSED
-      if (fs.existsSync(compressedPath)) {
-        const compressedSize = fs.statSync(compressedPath).size / 1024;
-
-        console.log("✅ Compressed Size:", compressedSize.toFixed(2), "KB");
-      } else {
-        console.log("❌ Compressed file not found");
-      }
-
-      // ✅ USE COMPRESSED IMAGE
-      imageUrl = `/uploads/doctors/${compressedFileName}`;
+      // ✅ DIRECT SAVE (frontend already compressed)
+      imageUrl = `/uploads/doctors/${req.file.filename}`;
 
       console.log("🖼 Image URL saved:", imageUrl);
     } else {
-      console.log("❌ No file received");
+      console.log("❌ No image uploaded");
     }
 
-    // USER CREATE
+    // ✅ USER CREATE
     const userId = await User.createUserByAdmin({
       username: email,
       email,
@@ -102,7 +89,7 @@ exports.createDoctor = async (req, res) => {
 
     console.log("👤 USER CREATED:", userId);
 
-    // DOCTOR CREATE
+    // ✅ DOCTOR CREATE
     await Doctor.addDoctor(
       userId,
       first_name,
@@ -119,10 +106,9 @@ exports.createDoctor = async (req, res) => {
 
     console.log("💾 DOCTOR SAVED IN DB WITH IMAGE:", imageUrl);
 
-    // RESET TOKEN
+    // ✅ RESET TOKEN + EMAIL
     const resetToken = generateResetToken();
     await User.saveResetToken(userId, resetToken);
-
     await sendResetPasswordEmail(email, resetToken);
 
     return res.status(201).json({
@@ -132,7 +118,7 @@ exports.createDoctor = async (req, res) => {
   } catch (error) {
     console.error("❌ CREATE DOCTOR ERROR:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Internal server error",
     });
@@ -198,6 +184,7 @@ exports.updateDoctor = async (req, res) => {
   try {
     const data = {};
 
+    // ✅ BASIC FIELDS
     if (req.body.first_name) data.first_name = req.body.first_name;
     if (req.body.last_name) data.last_name = req.body.last_name;
     if (req.body.email) data.email = req.body.email;
@@ -207,35 +194,43 @@ exports.updateDoctor = async (req, res) => {
     if (req.body.department) data.department = req.body.department;
     if (req.body.biography) data.biography = req.body.biography;
 
+    // ✅ DATE FIX
     if (req.body.dob) {
       data.dob = req.body.dob.split("T")[0];
     }
 
-    // ✅ LOCAL IMAGE PATH
+    // ✅ IMAGE HANDLE (NO COMPRESSION)
     if (req.file) {
+      console.log("📸 NEW IMAGE UPLOADED:", req.file.originalname);
+
       const filePath = req.file.path;
+      const sizeKB = fs.statSync(filePath).size / 1024;
 
-      const compressedFileName = await compressImage(filePath);
+      console.log("📦 Uploaded Size:", sizeKB.toFixed(2), "KB");
 
-      data.image = `/uploads/doctors/${compressedFileName}`;
+      // ✅ DIRECT SAVE (frontend already compressed)
+      data.image = `/uploads/doctors/${req.file.filename}`;
     }
 
+    // ✅ UPDATE DB
     await Doctor.updateDoctor(req.params.id, data);
 
-    res.json({
+    console.log("✅ Doctor updated:", req.params.id);
+
+    return res.json({
       success: true,
       message: "Doctor updated successfully",
     });
-  } catch (error) {
-    console.error("UPDATE DOCTOR ERROR:", error);
 
-    res.status(500).json({
+  } catch (error) {
+    console.error("❌ UPDATE DOCTOR ERROR:", error);
+
+    return res.status(500).json({
       success: false,
       message: "Update failed",
     });
   }
 };
-
 /**
  * ======================
  * DELETE DOCTOR
@@ -398,24 +393,39 @@ exports.uploadSignature = async (req, res) => {
 
     let signature = null;
 
+    // ✅ IMAGE HANDLE (NO COMPRESSION)
     if (req.file) {
+      console.log("🖊 Signature uploaded:", req.file.originalname);
+
       const filePath = req.file.path;
+      const sizeKB = fs.statSync(filePath).size / 1024;
 
-      const compressedFileName = await compressImage(filePath);
+      console.log("📦 Signature Size:", sizeKB.toFixed(2), "KB");
 
-      signature = `/uploads/signatures/${compressedFileName}`;
+      // ✅ DIRECT SAVE (frontend already compressed)
+      signature = `/uploads/signatures/${req.file.filename}`;
+    } else {
+      console.log("❌ No signature uploaded");
     }
 
+    // ✅ SAVE IN DB
     await Doctor.updateDoctorSignature(doctor_id, signature);
 
-    res.json({
+    console.log("✅ Signature saved for doctor:", doctor_id);
+
+    return res.json({
       success: true,
       message: "Signature uploaded",
       signature,
     });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false });
+    console.error("❌ SIGNATURE UPLOAD ERROR:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Upload failed",
+    });
   }
 };
 /**
