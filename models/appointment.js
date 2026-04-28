@@ -286,7 +286,6 @@ exports.getAllAppointments = async (filter, customDate) => {
  * ======================
  */
 
-
 exports.nextPatient = async (doctor_id) => {
   const connection = await db.getConnection();
 
@@ -309,7 +308,7 @@ exports.nextPatient = async (doctor_id) => {
       `SELECT id, status, token_number 
        FROM appointment 
        WHERE doctor_id=? AND DATE(date)=?`,
-      [safeDoctorId, today]
+      [safeDoctorId, today],
     );
 
     console.log("📅 TODAY APPOINTMENTS:", todayAppointments);
@@ -320,7 +319,7 @@ exports.nextPatient = async (doctor_id) => {
        FROM appointment 
        WHERE doctor_id=? AND DATE(date)=? AND status='Pending'
        ORDER BY token_number ASC`,
-      [safeDoctorId, today]
+      [safeDoctorId, today],
     );
 
     console.log("🟡 PENDING PATIENTS:", pending);
@@ -330,7 +329,7 @@ exports.nextPatient = async (doctor_id) => {
       `UPDATE appointment
        SET status='Pending'
        WHERE doctor_id=? AND DATE(date)=? AND status='In Consultation'`,
-      [safeDoctorId, today]
+      [safeDoctorId, today],
     );
 
     console.log("🔄 REMOVED ACTIVE:", removeActive.affectedRows);
@@ -352,7 +351,7 @@ exports.nextPatient = async (doctor_id) => {
       `UPDATE appointment
        SET status='In Consultation'
        WHERE id=?`,
-      [nextId]
+      [nextId],
     );
 
     console.log("✅ UPDATED NEXT:", updateNext.affectedRows);
@@ -362,7 +361,7 @@ exports.nextPatient = async (doctor_id) => {
       `SELECT id, status, token_number 
        FROM appointment 
        WHERE doctor_id=? AND DATE(date)=?`,
-      [safeDoctorId, today]
+      [safeDoctorId, today],
     );
 
     console.log("📊 AFTER UPDATE:", afterUpdate);
@@ -523,7 +522,7 @@ exports.getAppointmentsPaginated = async (
   limit,
   filter,
   customDate,
-  search, // 👈 NEW
+  search,
 ) => {
   let where = "WHERE 1=1";
   let values = [];
@@ -540,39 +539,34 @@ exports.getAppointmentsPaginated = async (
     values.push(customDate);
   }
 
-  // 🔍 SEARCH LOGIC
-  // 🔍 SEARCH LOGIC (IMPROVED)
+  // 🔍 SEARCH
   if (search) {
     const cleanSearch = search.trim();
     const isNumber = !isNaN(cleanSearch);
 
     if (isNumber) {
       if (cleanSearch.length >= 10) {
-        // 📱 PHONE SEARCH (partial match)
         where += " AND p.phone LIKE ?";
         values.push(`%${cleanSearch}%`);
       } else {
-        // 🆔 APPOINTMENT ID
         where += " AND a.id = ?";
         values.push(Number(cleanSearch));
       }
     } else {
-      // 🔤 TEXT SEARCH (NAME + DOCTOR + DEPARTMENT)
       where += `
-      AND (
-        LOWER(p.name) LIKE LOWER(?) OR
-        LOWER(CONCAT(d.first_name,' ',d.last_name)) LIKE LOWER(?) OR
-        LOWER(a.department) LIKE LOWER(?)
-      )
-    `;
-
+        AND (
+          LOWER(p.name) LIKE LOWER(?) OR
+          LOWER(CONCAT(d.first_name,' ',d.last_name)) LIKE LOWER(?) OR
+          LOWER(a.department) LIKE LOWER(?)
+        )
+      `;
       values.push(`%${cleanSearch}%`, `%${cleanSearch}%`, `%${cleanSearch}%`);
     }
   }
 
   const offset = (page - 1) * limit;
 
-  // 🔹 MAIN QUERY
+  // 🔥🔥🔥 MAIN FIX HERE
   const sql = `
     SELECT
       a.id,
@@ -585,10 +579,22 @@ exports.getAppointmentsPaginated = async (
       p.phone AS patient_phone,
       p.age,
       p.gender,
-      CONCAT(d.first_name,' ',d.last_name) AS doctor_name
+      CONCAT(d.first_name,' ',d.last_name) AS doctor_name,
+
+      pr.id AS prescription_id   -- ✅ ADD THIS
+
     FROM appointment a
     JOIN patient p ON p.id = a.patient_id
     JOIN doctor d ON d.id = a.doctor_id
+
+    LEFT JOIN prescription pr   -- ✅ ADD THIS
+    ON pr.id = (
+      SELECT id FROM prescription 
+      WHERE appointment_id = a.id 
+      ORDER BY id DESC 
+      LIMIT 1
+    )
+
     ${where}
     ORDER BY a.date DESC, a.token_number ASC
     LIMIT ? OFFSET ?
@@ -598,8 +604,8 @@ exports.getAppointmentsPaginated = async (
   console.log("📊 VALUES:", [...values, limit, offset]);
 
   const [rows] = await db.query(sql, [...values, limit, offset]);
-
-  // 🔹 COUNT QUERY
+  console.log("📊 ROWS:", rows);
+  // COUNT SAME RAHNE DO
   const countSql = `
     SELECT COUNT(*) as total
     FROM appointment a
