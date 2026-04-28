@@ -43,7 +43,7 @@ const uploadSignature = multer({ storage: signatureStorage });
 
 /**
  * ======================
- * 🔐 PRIVATE ROUTES (TOP PRIORITY)
+ * 🔐 PRIVATE ROUTES
  * ======================
  */
 router.get(
@@ -66,6 +66,26 @@ router.post(
 );
 
 router.get("/schedule", verifyToken, doctorController.getDoctorSchedule);
+
+/**
+ * ======================
+ * 🔥 SIGNATURE (IMPORTANT: ABOVE :id)
+ * ======================
+ */
+router.post(
+  "/signature",
+  verifyToken,
+  allowRoles("doctor", "admin"),
+  uploadSignature.single("signature"),
+  doctorController.uploadSignature,
+);
+
+router.get(
+  "/signature",
+  verifyToken,
+  allowRoles("doctor", "admin", "staff"),
+  doctorController.getSignature,
+);
 
 /**
  * ======================
@@ -95,7 +115,9 @@ router.post(
 );
 
 /**
- * ⚠️ IMPORTANT: dynamic routes LAST
+ * ======================
+ * ⚠️ DYNAMIC ROUTES (ALWAYS LAST)
+ * ======================
  */
 router.get("/:id/slots", doctorController.getDoctorSlots);
 
@@ -119,26 +141,6 @@ router.delete(
   verifyToken,
   allowRoles("admin"),
   doctorController.deleteDoctor,
-);
-
-/**
- * ======================
- * SIGNATURE
- * ======================
- */
-router.post(
-  "/signature",
-  verifyToken,
-  allowRoles("doctor", "admin"),
-  uploadSignature.single("signature"),
-  doctorController.uploadSignature,
-);
-
-router.get(
-  "/signature",
-  verifyToken,
-  allowRoles("doctor", "admin", "staff"),
-  doctorController.getSignature,
 );
 
 module.exports = router;
