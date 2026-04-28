@@ -1,5 +1,10 @@
 const db = require("../config/db");
 
+/**
+ * =========================
+ * 🔥 DASHBOARD STATS
+ * =========================
+ */
 exports.getDashboardStats = async (startDate, endDate) => {
   console.log("📊 getDashboardStats called");
   console.log("➡️ startDate:", startDate);
@@ -9,10 +14,9 @@ exports.getDashboardStats = async (startDate, endDate) => {
     SELECT 
       (SELECT COUNT(*) FROM doctor) AS total_doctors,
 
-      -- 🔥 FIX: DATE() added
+      -- 🔥 ALL STATUS INCLUDED
       (SELECT COUNT(*) FROM appointment 
-        WHERE status IN ('Completed','Pending')
-        AND DATE(date) BETWEEN ? AND ?) AS total_appointments,
+        WHERE DATE(date) BETWEEN ? AND ?) AS total_appointments,
 
       (SELECT COUNT(*) FROM appointment 
         WHERE status='Completed' 
@@ -20,12 +24,24 @@ exports.getDashboardStats = async (startDate, endDate) => {
 
       (SELECT COUNT(*) FROM appointment 
         WHERE status='Pending' 
-        AND DATE(date) BETWEEN ? AND ?) AS pending
+        AND DATE(date) BETWEEN ? AND ?) AS pending,
+
+      (SELECT COUNT(*) FROM appointment 
+        WHERE status='Skipped' 
+        AND DATE(date) BETWEEN ? AND ?) AS skipped,
+
+      (SELECT COUNT(*) FROM appointment 
+        WHERE status='In Consultation' 
+        AND DATE(date) BETWEEN ? AND ?) AS in_consultation
   `;
 
   console.log("📡 SQL:", sql);
 
   const [rows] = await db.query(sql, [
+    startDate,
+    endDate,
+    startDate,
+    endDate,
     startDate,
     endDate,
     startDate,
@@ -38,8 +54,11 @@ exports.getDashboardStats = async (startDate, endDate) => {
 
   return rows[0];
 };
+
 /**
- * 🔥 APPOINTMENT LIST (FILTER)
+ * =========================
+ * 🔥 APPOINTMENT LIST (ALL STATUS)
+ * =========================
  */
 exports.getAppointmentsByDate = async (startDate, endDate) => {
   console.log("📋 getAppointmentsByDate called");
@@ -47,31 +66,34 @@ exports.getAppointmentsByDate = async (startDate, endDate) => {
   console.log("➡️ endDate:", endDate);
 
   const sql = `
-  SELECT 
-    a.id,
-    a.date,
-    a.time,
-    a.status,
-    p.name AS patient_name,
-    CONCAT(d.first_name,' ',d.last_name) AS doctor_name
-  FROM appointment a
-  LEFT JOIN patient p ON p.id = a.patient_id   -- 🔥 FIX
-  LEFT JOIN doctor d ON d.id = a.doctor_id     -- 🔥 FIX
-  WHERE DATE(a.date) BETWEEN ? AND ?
-    AND a.status IN ('Completed','Pending')
-  ORDER BY a.date DESC
-`;
+    SELECT 
+      a.id,
+      a.date,
+      a.time,
+      a.status,
+      p.name AS patient_name,
+      CONCAT(d.first_name,' ',d.last_name) AS doctor_name
+    FROM appointment a
+    LEFT JOIN patient p ON p.id = a.patient_id
+    LEFT JOIN doctor d ON d.id = a.doctor_id
+    WHERE DATE(a.date) BETWEEN ? AND ?
+    ORDER BY a.date DESC
+  `;
 
   console.log("📡 SQL:", sql);
 
   const [rows] = await db.query(sql, [startDate, endDate]);
 
-  console.log("📥 APPOINTMENTS DB RESULT:", rows.length, rows);
+  console.log("📥 APPOINTMENTS COUNT:", rows.length);
+  console.log("📥 APPOINTMENTS DATA:", rows);
 
   return rows;
 };
+
 /**
- * 🔥 CHART DATA
+ * =========================
+ * 🔥 CHART DATA (ALL STATUS)
+ * =========================
  */
 exports.getPatientChart = async (startDate, endDate) => {
   console.log("📈 getPatientChart called");
@@ -84,8 +106,7 @@ exports.getPatientChart = async (startDate, endDate) => {
       MONTH(date) AS month_num,
       COUNT(*) AS patients
     FROM appointment
-    WHERE DATE(date) BETWEEN ? AND ?   -- 🔥 FIX HERE
-      AND status IN ('Completed','Pending')
+    WHERE DATE(date) BETWEEN ? AND ?
     GROUP BY MONTH(date), DATE_FORMAT(date, '%b')
     ORDER BY month_num
   `;
@@ -94,7 +115,7 @@ exports.getPatientChart = async (startDate, endDate) => {
 
   const [rows] = await db.query(sql, [startDate, endDate]);
 
-  console.log("📥 CHART DB RESULT:", rows);
+  console.log("📥 CHART DATA:", rows);
 
   return rows;
 };
