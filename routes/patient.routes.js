@@ -42,5 +42,5 @@ router.get(
   allowRoles("admin", "staff", "doctor"),
   patientController.patientHistory
 );
-
+router.post("/history/phone", patientController.getPatientHistoryByPhone);
 module.exports = router;

@@ -236,3 +236,48 @@ exports.getAllPatientsPaginated = async (
     total: countResult[0].total,
   };
 };
+
+/* ======================
+   GET PATIENT HISTORY BY PHONE
+====================== */
+exports.getPatientHistoryByPhone = async (phone) => {
+  console.log("📡 Get Patient by Phone:", phone);
+
+  // 1. Find patient
+  const [patientRows] = await db.query(
+    "SELECT * FROM patient WHERE phone = ?",
+    [phone]
+  );
+
+  if (patientRows.length === 0) {
+    return { patient: null, history: [] };
+  }
+
+  const patient = patientRows[0];
+
+  // 2. Get history using existing logic
+  const sql = `
+  SELECT
+    a.id AS appointment_id,
+    a.date,
+    a.time,
+    a.department,
+    a.status,
+    CONCAT(d.first_name, ' ', d.last_name) AS doctor_name,
+    pr.id AS prescription_id,
+    pr.pdf_path,
+    pr.created_at AS prescription_date
+  FROM appointment a
+  JOIN doctor d ON d.id = a.doctor_id
+  LEFT JOIN prescription pr ON pr.appointment_id = a.id
+  WHERE a.patient_id = ?
+  ORDER BY a.date DESC
+  `;
+
+  const [historyRows] = await db.query(sql, [patient.id]);
+
+  return {
+    patient,
+    history: historyRows,
+  };
+};

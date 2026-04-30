@@ -228,16 +228,22 @@ exports.sendToConsultant = async (req, res) => {
  */
 exports.completeConsultation = async (req, res) => {
   try {
+    console.log("✅ CONTROLLER: COMPLETE HIT");
+
     const { id, doctor_id, date } = req.body;
 
+    console.log("📥 BODY:", req.body);
+
     await Appointment.completeConsultation(id, doctor_id, date);
+
+    console.log("🎯 COMPLETE DONE:", id);
 
     res.json({
       success: true,
       message: "Consultation completed and next patient called",
     });
   } catch (error) {
-    console.error("❌ DB ERROR (COMPLETE):", error);
+    console.error("❌ COMPLETE ERROR:", error);
 
     res.status(500).json({
       success: false,
@@ -342,27 +348,29 @@ exports.nextPatient = async (req, res) => {
 
     const { doctor_id } = req.body;
 
-    console.log("📥 RAW BODY:", req.body);
-    console.log("📥 doctor_id:", doctor_id, typeof doctor_id);
+    console.log("📥 BODY:", req.body);
+    console.log("👨‍⚕️ doctor_id:", doctor_id);
 
     if (!doctor_id) {
-      console.log("❌ Missing doctor_id");
+      console.log("❌ doctor_id missing");
       return res.status(400).json({
         success: false,
         message: "doctor_id required",
       });
     }
 
+    console.log("🚀 CALLING MODEL nextPatient");
+
     await Appointment.nextPatient(doctor_id);
 
-    console.log("✅ CONTROLLER SUCCESS");
+    console.log("✅ NEXT PATIENT DONE");
 
     res.json({
       success: true,
       message: "Next patient called",
     });
   } catch (error) {
-    console.error("❌ CONTROLLER ERROR:", error);
+    console.error("❌ NEXT CONTROLLER ERROR:", error);
 
     res.status(500).json({
       success: false,
@@ -372,7 +380,11 @@ exports.nextPatient = async (req, res) => {
 };
 exports.skipPatient = async (req, res) => {
   try {
+    console.log("⏭ CONTROLLER: SKIP HIT");
+
     const { id, doctor_id, date } = req.body;
+
+    console.log("📥 BODY:", req.body);
 
     await Appointment.skipPatient({
       id,
@@ -380,27 +392,35 @@ exports.skipPatient = async (req, res) => {
       date,
     });
 
+    console.log("✅ SKIP DONE:", id);
+
     res.json({
       success: true,
       message: "Patient skipped",
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ SKIP ERROR:", err);
     res.status(500).json({ success: false });
   }
 };
 exports.recallPatient = async (req, res) => {
   try {
+    console.log("🔄 CONTROLLER: RECALL HIT");
+
     const { id } = req.body;
 
+    console.log("📥 BODY:", req.body);
+
     await Appointment.recallPatient(id);
+
+    console.log("✅ RECALL DONE:", id);
 
     res.json({
       success: true,
       message: "Patient recalled",
     });
   } catch (err) {
-    console.error(err);
+    console.error("❌ RECALL ERROR:", err);
 
     res.status(500).json({
       success: false,

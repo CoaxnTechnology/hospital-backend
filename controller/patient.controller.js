@@ -116,3 +116,44 @@ exports.patientHistory = async (req, res) => {
     });
   }
 };
+exports.getPatientHistoryByPhone = async (req, res) => {
+  try {
+    console.log("📡 POST /api/patients/history/phone", req.body);
+
+    const { phone } = req.body;
+
+    // ❌ validation
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    // ✅ model call
+    const data = await Patient.getPatientHistoryByPhone(phone);
+
+    // ❌ patient not found
+    if (!data.patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient not found",
+      });
+    }
+
+    // ✅ success
+    res.json({
+      success: true,
+      patient: data.patient,
+      history: data.history,
+    });
+
+  } catch (error) {
+    console.error("❌ Controller error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Database error",
+    });
+  }
+};

@@ -227,8 +227,7 @@ exports.getDoctorAppointments = async (doctor_id) => {
     'Prescription Added',
     'Skipped'
   )
-  ORDER BY a.token_number ASC
-  `;
+ORDER BY a.priority DESC, a.token_number ASC  `;
 
   const [rows] = await db.query(sql, [doctor_id]);
 
@@ -273,7 +272,7 @@ exports.getAllAppointments = async (filter, customDate) => {
   JOIN patient p ON p.id = a.patient_id
   JOIN doctor d ON d.id = a.doctor_id
   ${where}
-  ORDER BY a.date DESC, a.token_number ASC
+  ORDER BY a.date DESC, a.priority DESC, a.token_number ASC
   `;
 
   const [rows] = await db.query(sql, values);
@@ -292,94 +291,67 @@ exports.nextPatient = async (doctor_id) => {
   try {
     await connection.beginTransaction();
 
-    console.log("➡️ MODEL: NEXT PATIENT START");
+    console.log("➡️ NEXT PATIENT START:", doctor_id);
 
-    // ✅ SAFE TYPE
-    const safeDoctorId = Number(doctor_id);
-
-    // ✅ ONLY TODAY DATE
     const today = new Date().toISOString().split("T")[0];
 
-    console.log("📥 doctor_id:", safeDoctorId);
-    console.log("📥 TODAY DATE:", today);
-
-    // 🔍 CHECK TODAY APPOINTMENTS
-    const [todayAppointments] = await connection.query(
-      `SELECT id, status, token_number 
-       FROM appointment 
-       WHERE doctor_id=? AND DATE(date)=?`,
-      [safeDoctorId, today],
-    );
-
-    console.log("📅 TODAY APPOINTMENTS:", todayAppointments);
-
-    // 🔍 CHECK PENDING
-    const [pending] = await connection.query(
+    // current
+    const [current] = await connection.query(
       `SELECT id, token_number 
-       FROM appointment 
-       WHERE doctor_id=? AND DATE(date)=? AND status='Pending'
-       ORDER BY token_number ASC`,
-      [safeDoctorId, today],
-    );
-
-    console.log("🟡 PENDING PATIENTS:", pending);
-
-    // ❌ REMOVE CURRENT ACTIVE
-    const [removeActive] = await connection.query(
-      `UPDATE appointment
-       SET status='Pending'
+       FROM appointment
        WHERE doctor_id=? AND DATE(date)=? AND status='In Consultation'`,
-      [safeDoctorId, today],
+      [doctor_id, today],
     );
-
-    console.log("🔄 REMOVED ACTIVE:", removeActive.affectedRows);
-
-    // ❌ NO PENDING
-    if (pending.length === 0) {
-      console.log("❌ NO PENDING PATIENT FOUND");
-
+    if (current.length > 0) {
+      console.log("⚠️ Already in consultation, skipping next");
       await connection.commit();
       return;
     }
 
-    const nextId = pending[0].id;
+    console.log("👨‍⚕️ CURRENT:", current);
 
-    console.log("👉 NEXT PATIENT ID:", nextId);
-
-    // ✅ SET NEXT PATIENT
-    const [updateNext] = await connection.query(
-      `UPDATE appointment
-       SET status='In Consultation'
-       WHERE id=?`,
-      [nextId],
+    // next
+    const [next] = await connection.query(
+      `SELECT id, token_number, priority
+       FROM appointment
+       WHERE doctor_id=? AND DATE(date)=? AND status='Pending'
+       ORDER BY priority DESC, token_number ASC
+       LIMIT 1`,
+      [doctor_id, today],
     );
 
-    console.log("✅ UPDATED NEXT:", updateNext.affectedRows);
+    console.log("➡️ NEXT FOUND:", next);
 
-    // 🔍 VERIFY
-    const [afterUpdate] = await connection.query(
-      `SELECT id, status, token_number 
-       FROM appointment 
-       WHERE doctor_id=? AND DATE(date)=?`,
-      [safeDoctorId, today],
+    if (next.length > 0) {
+      await connection.query(
+        `UPDATE appointment
+         SET status='In Consultation', priority=0
+         WHERE id=?`,
+        [next[0].id],
+      );
+
+      console.log("✅ MOVED TO CONSULTATION:", next[0].id);
+    }
+
+    const [after] = await connection.query(
+      `SELECT id, token_number, status, priority
+       FROM appointment
+       WHERE doctor_id=? AND DATE(date)=?
+       ORDER BY priority DESC, token_number ASC`,
+      [doctor_id, today],
     );
 
-    console.log("📊 AFTER UPDATE:", afterUpdate);
+    console.log("📊 AFTER NEXT:", after);
 
     await connection.commit();
-
-    console.log("✅ MODEL SUCCESS");
   } catch (err) {
     await connection.rollback();
-
-    console.error("❌ MODEL ERROR:", err);
-
+    console.error("❌ NEXT ERROR:", err);
     throw err;
   } finally {
     connection.release();
   }
 };
-
 /**
  * ======================
  * COMPLETE CONSULTATION
@@ -392,6 +364,8 @@ exports.completeConsultation = async (id, doctor_id, date) => {
   try {
     await connection.beginTransaction();
 
+    console.log("✅ COMPLETE START:", id);
+
     await connection.query(
       `UPDATE appointment
        SET status='Completed'
@@ -399,32 +373,39 @@ exports.completeConsultation = async (id, doctor_id, date) => {
       [id],
     );
 
-    await connection.query(
-      `UPDATE appointment
-       SET status='In Consultation'
-       WHERE id = (
-         SELECT id FROM (
-           SELECT id
-           FROM appointment
-           WHERE doctor_id=?
-           AND date=?
-           AND status='Pending'
-           ORDER BY token_number ASC
-           LIMIT 1
-         ) AS t
-       )`,
+    console.log("✔️ MARKED COMPLETE:", id);
+
+    const [next] = await connection.query(
+      `SELECT id, token_number, priority
+       FROM appointment
+       WHERE doctor_id=? AND date=? AND status='Pending'
+       ORDER BY priority DESC, token_number ASC
+       LIMIT 1`,
       [doctor_id, date],
     );
+
+    console.log("➡️ NEXT AFTER COMPLETE:", next);
+
+    if (next.length > 0) {
+      await connection.query(
+        `UPDATE appointment
+         SET status='In Consultation', priority=0
+         WHERE id=?`,
+        [next[0].id],
+      );
+
+      console.log("✅ NEXT SET:", next[0].id);
+    }
 
     await connection.commit();
   } catch (err) {
     await connection.rollback();
+    console.error("❌ COMPLETE ERROR:", err);
     throw err;
   } finally {
     connection.release();
   }
 };
-
 /**
  * ======================
  * SKIP PATIENT
@@ -437,35 +418,62 @@ exports.skipPatient = async ({ id, doctor_id, date }) => {
   try {
     await connection.beginTransaction();
 
-    console.log("⏭ SKIP PATIENT:", { id, doctor_id, date });
+    console.log("⏭ SKIP START:", { id, doctor_id, date });
 
-    // ✅ FIXED QUERY
-    await connection.query(
-      `UPDATE appointment 
-       SET status='Skipped' 
-       WHERE id = ? AND doctor_id = ? AND date = ?`,
-      [id, doctor_id, date],
-    );
-
-    // ✅ NEXT PATIENT AUTO CALL
-    await connection.query(
-      `UPDATE appointment
-       SET status='In Consultation'
-       WHERE id = (
-         SELECT id FROM (
-           SELECT id
-           FROM appointment
-           WHERE doctor_id=? AND date=? AND status='Pending'
-           ORDER BY token_number ASC
-           LIMIT 1
-         ) AS t
-       )`,
+    const [all] = await connection.query(
+      `SELECT id, token_number, status, priority
+       FROM appointment
+       WHERE doctor_id=? AND date=?
+       ORDER BY priority DESC, token_number ASC`,
       [doctor_id, date],
     );
 
-    await connection.commit();
+    console.log("📊 BEFORE SKIP:", all);
 
-    console.log("✅ SKIPPED + NEXT PATIENT CALLED");
+    // skip
+    await connection.query(
+      `UPDATE appointment 
+       SET status='Skipped' 
+       WHERE id = ?`,
+      [id],
+    );
+
+    console.log("⚠️ MARKED SKIPPED:", id);
+
+    // next patient
+    const [next] = await connection.query(
+      `SELECT id, token_number, priority
+       FROM appointment
+       WHERE doctor_id=? AND date=? AND status='Pending'
+       ORDER BY priority DESC, token_number ASC
+       LIMIT 1`,
+      [doctor_id, date],
+    );
+
+    console.log("➡️ NEXT FOUND:", next);
+
+    if (next.length > 0) {
+      await connection.query(
+        `UPDATE appointment
+         SET status='In Consultation', priority=0
+         WHERE id=?`,
+        [next[0].id],
+      );
+
+      console.log("✅ SET IN CONSULTATION:", next[0].id);
+    }
+
+    const [after] = await connection.query(
+      `SELECT id, token_number, status, priority
+       FROM appointment
+       WHERE doctor_id=? AND date=?
+       ORDER BY priority DESC, token_number ASC`, // ✅ FIXED
+      [doctor_id, date],
+    );
+
+    console.log("📊 AFTER SKIP:", after);
+
+    await connection.commit();
   } catch (err) {
     await connection.rollback();
     console.error("❌ SKIP ERROR:", err);
@@ -482,14 +490,31 @@ exports.skipPatient = async ({ id, doctor_id, date }) => {
  */
 
 exports.recallPatient = async (id) => {
-  const [result] = await db.query(
-    `UPDATE appointment
-     SET status='In Consultation'
-     WHERE id=?`,
+  console.log("🔄 RECALL START → ID:", id);
+
+  const [before] = await db.query(
+    `SELECT id, token_number, status, priority 
+     FROM appointment WHERE id=?`,
     [id],
   );
 
-  return result;
+  console.log("📊 BEFORE RECALL:", before);
+
+  await db.query(
+    `UPDATE appointment
+     SET status = 'Pending',
+         priority = 1
+     WHERE id = ?`,
+    [id],
+  );
+
+  const [after] = await db.query(
+    `SELECT id, token_number, status, priority 
+     FROM appointment WHERE id=?`,
+    [id],
+  );
+
+  console.log("✅ AFTER RECALL:", after);
 };
 /**
  * ======================
@@ -596,7 +621,7 @@ exports.getAppointmentsPaginated = async (
     )
 
     ${where}
-    ORDER BY a.date DESC, a.token_number ASC
+    ORDER BY a.date DESC, a.priority DESC, a.token_number ASC
     LIMIT ? OFFSET ?
   `;
 
