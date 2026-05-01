@@ -79,20 +79,21 @@ exports.getFullPrescription = async (id) => {
   SELECT 
     pr.id,
     pr.patient_id,
-    pr.diagnosis,   -- ✅ NEW
+    pr.diagnosis,
 
     pt.name AS patient_name,
     pt.phone AS mobile,
     pt.age,
 
     CONCAT(d.first_name, ' ', d.last_name) AS doctor_name,
+    a.department,  -- ✅ ADD THIS
 
     pm.medicine_name,
     pm.dosage,
     pm.duration,
-    pm.timing,       -- ✅ NEW
-    pm.frequency,    -- ✅ NEW
-    pm.instruction,  -- ✅ NEW
+    pm.timing,
+    pm.frequency,
+    pm.instruction,
 
     m.selling_price,
     m.gst_percentage,
@@ -106,6 +107,9 @@ exports.getFullPrescription = async (id) => {
   LEFT JOIN doctor d 
     ON d.id = pr.doctor_id
 
+  LEFT JOIN appointment a   -- ✅ IMPORTANT JOIN
+    ON a.id = pr.appointment_id
+
   LEFT JOIN prescription_medicine pm 
     ON pm.prescription_id = pr.id
 
@@ -118,6 +122,11 @@ exports.getFullPrescription = async (id) => {
   const [rows] = await db.query(sql, [id]);
 
   console.log("📊 MODEL: FULL PRESCRIPTION RESULT:", rows);
+
+  // 🔍 DEBUG CHECK
+  if (rows.length > 0) {
+    console.log("🏥 DEPARTMENT CHECK:", rows[0].department);
+  }
 
   return rows;
 };
