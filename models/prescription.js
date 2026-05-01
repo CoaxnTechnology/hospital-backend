@@ -6,9 +6,13 @@ const db = require("../config/db");
  * ======================
  */
 exports.createPrescription = async (data) => {
+  console.log("📥 MODEL: CREATE PRESCRIPTION DATA:", data);
+
   const sql = `INSERT INTO prescription SET ?`;
 
   const [result] = await db.query(sql, data);
+
+  console.log("✅ MODEL: PRESCRIPTION INSERTED ID:", result.insertId);
 
   return result.insertId;
 };
@@ -19,22 +23,30 @@ exports.createPrescription = async (data) => {
  * ======================
  */
 exports.addMedicines = async (prescriptionId, medicines) => {
+  console.log("📥 MODEL: ADD MEDICINES:", medicines);
+
   const values = medicines.map((med) => [
     prescriptionId,
     med.name,
     med.dosage,
     med.duration,
+    med.timing,
+    med.frequency,
+    med.instruction,
   ]);
+
+  console.log("📊 INSERT VALUES:", values);
 
   const sql = `
   INSERT INTO prescription_medicine
-  (prescription_id, medicine_name, dosage, duration)
+  (prescription_id, medicine_name, dosage, duration, timing, frequency, instruction)
   VALUES ?
   `;
 
   await db.query(sql, [values]);
-};
 
+  console.log("✅ MODEL: MEDICINES INSERTED");
+};
 
 /**
  * ======================
@@ -42,6 +54,8 @@ exports.addMedicines = async (prescriptionId, medicines) => {
  * ======================
  */
 exports.updateAppointmentStatus = async (appointment_id) => {
+  console.log("🔄 MODEL: UPDATE APPOINTMENT STATUS:", appointment_id);
+
   const sql = `
   UPDATE appointment
   SET status='Prescription Added'
@@ -49,12 +63,23 @@ exports.updateAppointmentStatus = async (appointment_id) => {
   `;
 
   await db.query(sql, [appointment_id]);
+
+  console.log("✅ MODEL: APPOINTMENT UPDATED");
 };
+
+/**
+ * ======================
+ * GET FULL PRESCRIPTION
+ * ======================
+ */
 exports.getFullPrescription = async (id) => {
+  console.log("📥 MODEL: GET FULL PRESCRIPTION ID:", id);
+
   const sql = `
   SELECT 
     pr.id,
     pr.patient_id,
+    pr.diagnosis,   -- ✅ NEW
 
     pt.name AS patient_name,
     pt.phone AS mobile,
@@ -65,10 +90,13 @@ exports.getFullPrescription = async (id) => {
     pm.medicine_name,
     pm.dosage,
     pm.duration,
+    pm.timing,       -- ✅ NEW
+    pm.frequency,    -- ✅ NEW
+    pm.instruction,  -- ✅ NEW
 
     m.selling_price,
     m.gst_percentage,
-    m.quantity AS stock   -- ✅ ADD THIS LINE
+    m.quantity AS stock
 
   FROM prescription pr
 
@@ -88,6 +116,8 @@ exports.getFullPrescription = async (id) => {
   `;
 
   const [rows] = await db.query(sql, [id]);
+
+  console.log("📊 MODEL: FULL PRESCRIPTION RESULT:", rows);
 
   return rows;
 };

@@ -10,39 +10,54 @@ const fs = require("fs");
  */
 exports.createPrescription = async (req, res) => {
   try {
-    console.log("📥 INCOMING REQUEST BODY:", req.body);
+    console.log("🚀 CONTROLLER: CREATE PRESCRIPTION HIT");
+    console.log("📥 REQUEST BODY:", req.body);
 
-    const { appointment_id, doctor_id, patient_id, medicines } = req.body;
+    const { appointment_id, doctor_id, patient_id, diagnosis, medicines } =
+      req.body;
 
+    console.log("📊 EXTRACTED DATA:", {
+      appointment_id,
+      doctor_id,
+      patient_id,
+      diagnosis,
+      medicines,
+    });
+
+    // 🔥 STEP 1: CREATE PRESCRIPTION
     const prescriptionId = await Prescription.createPrescription({
       appointment_id,
       doctor_id,
       patient_id,
+      diagnosis,
     });
 
-    console.log("✅ PRESCRIPTION CREATED ID:", prescriptionId);
+    console.log("✅ PRESCRIPTION CREATED:", prescriptionId);
 
-    /**
-     * 🔥 CHECK DB RIGHT AFTER INSERT
-     */
-    const [check] = await con.query("SELECT * FROM prescription WHERE id = ?", [
-      prescriptionId,
-    ]);
-
-    console.log("🧾 DB RECORD AFTER CREATE:", check[0]);
-
+    // 🔥 STEP 2: ADD MEDICINES
     if (medicines && medicines.length > 0) {
+      console.log("💊 ADDING MEDICINES...");
       await Prescription.addMedicines(prescriptionId, medicines);
+    } else {
+      console.log("⚠️ NO MEDICINES PROVIDED");
     }
 
+    // 🔥 STEP 3: UPDATE APPOINTMENT
     await Prescription.updateAppointmentStatus(appointment_id);
+
+    console.log("🎯 ALL STEPS COMPLETED");
 
     return res.json({
       success: true,
       prescriptionId,
     });
   } catch (error) {
-    console.error("❌ CREATE PRESCRIPTION ERROR:", error);
+    console.error("❌ CONTROLLER ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Error creating prescription",
+    });
   }
 };
 /**
@@ -83,13 +98,17 @@ exports.getPrescriptionMedicines = async (req, res) => {
   try {
     const prescriptionId = req.params.id;
 
+    console.log("📥 GET MEDICINES FOR:", prescriptionId);
+
     const [rows] = await con.query(
       `
       SELECT 
       pm.medicine_name,
       pm.dosage,
       pm.duration,
-      pm.instructions,
+      pm.timing,
+      pm.frequency,
+      pm.instruction,
       m.id as medicine_id,
       m.selling_price,
       m.quantity,
@@ -103,12 +122,14 @@ exports.getPrescriptionMedicines = async (req, res) => {
       [prescriptionId],
     );
 
+    console.log("📊 MEDICINES RESULT:", rows);
+
     res.json({
       success: true,
       data: rows,
     });
   } catch (error) {
-    console.error(error);
+    console.error("❌ GET MEDICINES ERROR:", error);
 
     res.status(500).json({
       success: false,
@@ -116,7 +137,6 @@ exports.getPrescriptionMedicines = async (req, res) => {
     });
   }
 };
-
 /**
  * ======================
  * GET PRESCRIPTION BY ID (for pharmacy)
